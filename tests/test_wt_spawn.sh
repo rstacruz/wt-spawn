@@ -97,7 +97,7 @@ test_main_herdr_integration() {
     fi
   }
 
-  main -a sonnet -p "add test feature" --no-create-pr
+  main --no-create-pr -a sonnet "add test feature"
 
   # Single pi call → worktree → workspace name → herdr dispatch
   assert_call_count "pi " 1 "exactly one pi call"
@@ -137,7 +137,7 @@ test_retry_on_first_failure() {
     fi
   }
 
-  main -a sonnet -p "add retry test" --no-create-pr
+  main --no-create-pr -a sonnet "add retry test"
 
   assert_call_count "pi " 2 "exactly two pi calls (retry)"
   assert_called "feat/retry-works" "branch from retry"
@@ -162,7 +162,7 @@ test_strips_markdown_fenced_json() {
     fi
   }
 
-  main -a sonnet -p "add fenced json test" --no-create-pr
+  main --no-create-pr -a sonnet "add fenced json test"
 
   assert_call_count "pi " 1 "single pi call, no retry needed"
   assert_called "feat/fenced-json" "branch parsed despite code fence"
@@ -259,7 +259,7 @@ test_non_prefixed_branch_accepted() {
     fi
   }
 
-  main -a sonnet -p "add redis caching" --no-create-pr
+  main --no-create-pr -a sonnet "add redis caching"
 
   assert_called "--create add-redis-caching" "non-prefixed branch accepted"
   assert_call_count "pi " 1 "exactly one pi call for valid output"
@@ -301,7 +301,7 @@ test_hashtag_agent_resolves() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main -p "#sonnet fix bug" --no-create-pr
+    main --no-create-pr "#sonnet fix bug"
   )
   assert_called "claude --model sonnet" "sonnet agent invoked"
   assert_called "fix bug" "prompt with tag stripped"
@@ -312,7 +312,7 @@ test_hashtag_template_resolves() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main -a sonnet -p "#plan fix bug" --no-create-pr
+    main --no-create-pr -a sonnet "#plan fix bug"
   )
   assert_called "Create a plan. Details:" "template text prepended"
   assert_called "fix bug" "body kept"
@@ -323,7 +323,7 @@ test_hashtag_agent_and_template() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main -p "#plan #sonnet fix bug" --no-create-pr
+    main --no-create-pr "#plan #sonnet fix bug"
   )
   assert_called "claude --model sonnet" "sonnet agent invoked"
   assert_called "Create a plan. Details:" "template text prepended"
@@ -334,7 +334,7 @@ test_hashtag_midtext_untouched() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main -p "#sonnet fix issue #1234" --no-create-pr
+    main --no-create-pr "#sonnet fix issue #1234"
   )
   assert_called "fix issue #1234" "mid-text hashtag left literal"
 }
@@ -347,7 +347,7 @@ test_hashtag_multiline_prompt_body() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main -a sonnet -p $'#plan\nfix bug across multiple\nlines of detail' --no-create-pr
+    main --no-create-pr -a sonnet $'#plan\nfix bug across multiple\nlines of detail'
   )
   assert_called "Create a plan. Details:" "template resolved despite newline after tag"
   assert_called "fix bug across multiple" "multi-line body preserved"
@@ -358,14 +358,14 @@ test_hashtag_lone_template_empty_body() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/plan-only", "name": "Plan only"}'; }
-    main -a sonnet -p "#plan" --no-create-pr
+    main --no-create-pr -a sonnet "#plan"
   )
   assert_called "Create a plan. Details:" "template text alone is not an empty prompt"
 }
 
 test_hashtag_lone_agent_empty_body_errors() {
   local status=0
-  ( main -p "#sonnet" --no-create-pr ) || status=$?
+  ( main --no-create-pr "#sonnet" ) || status=$?
   assertEquals "agent tag alone has no body to fall back on" 1 "$status"
 }
 
@@ -374,7 +374,7 @@ test_hashtag_flag_wins() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main -a opus -p "#sonnet fix bug" --no-create-pr
+    main --no-create-pr -a opus "#sonnet fix bug"
   )
   assert_called "claude --model opus" "explicit -a flag wins over #tag"
   assert_not_called "--model sonnet" "hashtag agent not used"
@@ -383,7 +383,7 @@ test_hashtag_flag_wins() {
 
 test_no_agent_no_hashtag_errors() {
   local status=0
-  ( main -p "fix bug" --no-create-pr ) || status=$?
+  ( main --no-create-pr "fix bug" ) || status=$?
   assertEquals "agent required when absent from flag and prompt" 2 "$status"
 }
 
@@ -395,7 +395,7 @@ test_hashtag_via_file() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main -p "@$promptfile" --no-create-pr
+    main --no-create-pr "@$promptfile"
   )
   assert_called "claude --model sonnet" "sonnet resolved from @file prompt"
   assert_called "fix bug via file" "tag stripped from @file prompt"
@@ -407,7 +407,7 @@ test_hashtag_via_stdin() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main -p - --no-create-pr <<< "#sonnet fix bug via stdin"
+    main --no-create-pr - <<< "#sonnet fix bug via stdin"
   )
   assert_called "claude --model sonnet" "sonnet resolved from stdin prompt"
   assert_called "fix bug via stdin" "tag stripped from stdin prompt"
@@ -430,7 +430,7 @@ test_default_harness_is_claude() {
     fi
   }
 
-  main -a sonnet -p "use claude by default" --no-create-pr
+  main --no-create-pr -a sonnet "use claude by default"
 
   assert_called "claude" "claude called for branch/name inference by default"
   assert_called "--model haiku" "auto-picked haiku model"
@@ -454,7 +454,7 @@ test_infer_harness_pi() {
     fi
   }
 
-  main -a sonnet -p "use pi explicitly" --no-create-pr
+  main --no-create-pr -a sonnet "use pi explicitly"
 
   assert_called "pi " "pi called when INFER_HARNESS=pi"
   assert_not_called "claude " "claude not called when harness is pi"
@@ -529,13 +529,99 @@ test_invalid_infer_harness_fails_fast() {
   INFER_HARNESS=bogus
 
   local output status
-  output=$(main -a sonnet -p "should never run" --no-create-pr 2>&1) && status=$? || status=$?
+  output=$(main --no-create-pr -a sonnet "should never run" 2>&1) && status=$? || status=$?
 
   assertEquals "main exits non-zero on invalid INFER_HARNESS" 2 "$status"
   echo "$output" | grep -qi 'unknown INFER_HARNESS' || fail "error message should mention unknown INFER_HARNESS"
   assert_not_called "pi " "pi never called on invalid harness"
   assert_not_called "claude " "claude never called on invalid harness"
   assert_not_called "wt switch" "worktree never created on invalid harness"
+}
+
+test_positional_args_joined() {
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'
+  }
+  herdr() {
+    log_call "herdr" "$@"
+    if [[ "$*" == *"workspace create"* ]]; then
+      echo '{"result":{"root_pane":{"pane_id":"pane-99"}}}'
+    fi
+  }
+
+  main --no-create-pr -a sonnet fix bug
+
+  assert_called "fix bug" "positional args joined into prompt"
+  assert_call_count "pi " 1 "exactly one pi call"
+}
+
+test_positional_stdin() {
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/stdin-test", "name": "Stdin test"}'
+  }
+  herdr() {
+    log_call "herdr" "$@"
+    if [[ "$*" == *"workspace create"* ]]; then
+      echo '{"result":{"root_pane":{"pane_id":"pane-99"}}}'
+    fi
+  }
+
+  main --no-create-pr -a sonnet - <<< "fix via stdin"
+
+  assert_called "feat/stdin-test" "stdin prompt read via -"
+  assert_called "fix via stdin" "stdin content in prompt"
+}
+
+test_positional_file() {
+  INFER_HARNESS=pi
+  local promptfile
+  promptfile=$(mktemp "${TMPDIR:-/tmp}/wt-prompt-XXXXXX")
+  printf 'fix via file' > "$promptfile"
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/file-test", "name": "File test"}'
+  }
+  herdr() {
+    log_call "herdr" "$@"
+    if [[ "$*" == *"workspace create"* ]]; then
+      echo '{"result":{"root_pane":{"pane_id":"pane-99"}}}'
+    fi
+  }
+
+  main --no-create-pr -a sonnet "@$promptfile"
+
+  assert_called "feat/file-test" "file prompt read via @file"
+  assert_called "fix via file" "file content in prompt"
+  rm -f "$promptfile"
+}
+
+test_help_omits_p_flag() {
+  local output
+  output=$(show_help)
+
+  # OPTIONS section must not list -p/--prompt as a flag
+  ! grep -q -- '-p, --prompt' <<<"$output" || fail "show_help must not list -p flag"
+  # But an agent description like 'opencode --auto --prompt' may mention --prompt
+  # legitimately — only the flag definition line should not exist.
 }
 
 # --- shunit2 bootstrap ---
