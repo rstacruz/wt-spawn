@@ -69,7 +69,7 @@ setUp() {
   unset ZELLIJ TMUX
 
   AUTO_CREATE_DRAFT_PR=0
-  INFER_HARNESS=claude
+  INFER_HARNESS=auto
   INFER_MODEL=""
 }
 
@@ -181,6 +181,7 @@ test_print_default_config() {
 
   # Must contain expected keys
   grep -q '^INFER_HARNESS=' <<<"$output" || fail "missing INFER_HARNESS"
+  grep -q "INFER_HARNESS='auto'" <<<"$output" || fail "INFER_HARNESS default should be auto"
   grep -q '^INFER_MODEL=' <<<"$output" || fail "missing INFER_MODEL"
   grep -q '^AGENTS\[pi\]=' <<<"$output" || fail "missing AGENTS[pi]"
   grep -q '^PROMPT_TEMPLATES\[plan\]=' <<<"$output" || fail "missing PROMPT_TEMPLATES[plan]"
@@ -416,15 +417,15 @@ test_hashtag_via_stdin() {
   assert_called "fix bug via stdin" "tag stripped from stdin prompt"
 }
 
-test_default_harness_is_claude() {
-  # INFER_HARNESS left at setUp's default ("claude")
+test_default_harness_is_auto() {
+  # INFER_HARNESS left at setUp's default ("auto") → resolves to claude (mock exists)
   wt() {
     log_call "wt" "$@"
     printf '{"path":"%s"}\n' "$FAKE_WT"
   }
   claude() {
     log_call "claude" "$@"
-    echo '{"branch": "feat/claude-default", "name": "Claude default"}'
+    echo '{"branch": "feat/auto-default", "name": "Auto default"}'
   }
   herdr() {
     log_call "herdr" "$@"
@@ -433,11 +434,11 @@ test_default_harness_is_claude() {
     fi
   }
 
-  main --no-create-pr -a sonnet "use claude by default"
+  main --no-create-pr -a sonnet "use auto by default"
 
-  assert_called "claude" "claude called for branch/name inference by default"
+  assert_called "claude" "claude called for branch/name inference (auto-resolved from default)"
   assert_called "--model haiku" "auto-picked haiku model"
-  assert_not_called "pi " "pi not called when harness is claude"
+  assert_not_called "pi " "pi not called when auto resolves to claude"
 }
 
 test_infer_harness_pi() {
@@ -520,11 +521,35 @@ test_ensure_valid_infer_harness() {
   INFER_HARNESS=opencode
   assertTrue "opencode is valid" "ensure_valid_infer_harness"
 
+  # auto with claude available (mock function exists)
+  INFER_HARNESS=auto
+  ensure_valid_infer_harness
+  assertEquals "auto resolves to claude when claude is available" "claude" "$INFER_HARNESS"
+
   INFER_HARNESS=bogus
   local output status
   output=$(ensure_valid_infer_harness 2>&1) && status=$? || status=$?
   assertEquals "bogus harness is invalid" 1 "$status"
   echo "$output" | grep -qi 'unknown INFER_HARNESS' || fail "error message should mention unknown INFER_HARNESS"
+}
+
+test_auto_harness_resolves_opencode() {
+  # claude NOT available → auto resolves to opencode
+  INFER_HARNESS=auto
+  (
+    unset -f claude
+    # Hide real claude binary (if installed); rely on opencode mock function
+    PATH="" ensure_valid_infer_harness
+    assertEquals "auto resolves to opencode when claude is absent" "opencode" "$INFER_HARNESS"
+  )
+}
+
+test_auto_harness_neither_errors() {
+  INFER_HARNESS=auto
+  local output status
+  output=$(unset -f claude opencode; PATH="" ensure_valid_infer_harness 2>&1) && status=$? || status=$?
+  assertEquals "auto fails when neither binary is available" 1 "$status"
+  echo "$output" | grep -qi 'neither.*claude.*opencode.*PATH' || fail "error message should mention missing binaries"
 }
 
 test_ensure_valid_infer_harness_missing_binary() {
