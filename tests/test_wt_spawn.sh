@@ -843,12 +843,13 @@ test_base_long_flag_only() {
 }
 
 test_branch_rejects_invalid() {
-  # Override git to reject "has space" as invalid branch name
+  # Override git to reject "has space" as invalid branch name; succeed for everything else
   git() {
     log_call "git" "$@"
     if [[ "$*" == *"check-ref-format"* ]] && [[ "$*" == *"has space"* ]]; then
       return 1
     fi
+    return 0
   }
 
   local output status
