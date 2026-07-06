@@ -553,7 +553,7 @@ test_zellij_integration() {
     log_call "zellij" "$@"
   }
 
-  main -a sonnet -p "zellij integration" --no-create-pr
+  main --no-create-pr -a sonnet "zellij integration"
 
   assert_called "zellij action new-tab" "zellij new-tab called"
   assert_called "--cwd $FAKE_WT" "zellij tab with correct cwd"
@@ -586,7 +586,7 @@ test_zellij_create_tab_muxer_display() {
   }
 
   local output
-  output=$(main -a sonnet -p "zellij muxer display" --no-create-pr 2>&1) || true
+  output=$(main --no-create-pr -a sonnet "zellij muxer display" 2>&1) || true
 
   echo "$output" | grep -qF 'muxer:    zellij' || fail "muxer displayed as zellij in output"
 
