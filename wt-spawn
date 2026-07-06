@@ -27,8 +27,8 @@ declare -A PROMPT_TEMPLATES=()
 PROMPT_TEMPLATES[plan]='Create a plan. Details:'
 PROMPT_TEMPLATES[implement]='/goal Implement this plan as described, ensure PR title and description are accurate and sensible. Ultrathink. Plan:'
 
-# Harness used for branch/workspace name inference: "pi" or "claude"
-INFER_HARNESS="claude"
+# Harness for branch/workspace name inference: "auto", "pi", "claude", or "opencode" (auto tries claude then opencode)
+INFER_HARNESS="auto"
 
 # Model for inference (fast/cheap is fine). Empty = auto-pick
 INFER_MODEL=""
@@ -71,7 +71,7 @@ print_default_config() {
 HEADER
 
   # --- Inference harness/model ---
-  printf '# Harness for branch/workspace name inference: "pi", "claude", or "opencode"\n'
+  printf '# Harness for branch/workspace name inference: "auto", "pi", "claude", or "opencode" (auto tries claude then opencode)\n'
   printf "INFER_HARNESS='%s'\n" "${INFER_HARNESS//\'/\'\\\'\'}"
   printf '\n'
   printf '# Model for inference (fast/cheap is fine). Empty = auto-pick from INFER_HARNESS.\n'
@@ -335,7 +335,7 @@ resolve_infer_model() {
   case "$INFER_HARNESS" in
     pi|claude|opencode) ;;
     *)
-      echo "Error: unknown INFER_HARNESS '$INFER_HARNESS' (expected 'pi', 'claude', or 'opencode')" >&2
+      echo "Error: unknown INFER_HARNESS '$INFER_HARNESS' (expected 'auto', 'pi', 'claude', or 'opencode')" >&2
       return 1
       ;;
   esac
@@ -355,16 +355,28 @@ resolve_infer_model() {
 # returns 1 if invalid or missing.
 ensure_valid_infer_harness() {
   case "$INFER_HARNESS" in
-    pi|claude|opencode) ;;
+    auto)
+      if command -v claude >/dev/null 2>&1; then
+        INFER_HARNESS=claude
+      elif command -v opencode >/dev/null 2>&1; then
+        INFER_HARNESS=opencode
+      else
+        echo "Error: INFER_HARNESS=auto but neither claude nor opencode found in PATH." >&2
+        echo "Install claude or opencode, or set INFER_HARNESS in ~/.config/wt-spawn/config.sh" >&2
+        return 1
+      fi
+      ;;
+    pi|claude|opencode)
+      if ! command -v "$INFER_HARNESS" >/dev/null 2>&1; then
+        echo "Error: INFER_HARNESS='$INFER_HARNESS' but '$INFER_HARNESS' is not installed (not found in PATH)" >&2
+        return 1
+      fi
+      ;;
     *)
-      echo "Error: unknown INFER_HARNESS '$INFER_HARNESS' (expected 'pi', 'claude', or 'opencode')" >&2
+      echo "Error: unknown INFER_HARNESS '$INFER_HARNESS' (expected 'auto', 'pi', 'claude', or 'opencode')" >&2
       return 1
       ;;
   esac
-  if ! command -v "$INFER_HARNESS" >/dev/null 2>&1; then
-    echo "Error: INFER_HARNESS='$INFER_HARNESS' but '$INFER_HARNESS' is not installed (not found in PATH)" >&2
-    return 1
-  fi
 }
 
 # Call the configured harness with a prompt. Uses INFER_HARNESS/INFER_MODEL.
