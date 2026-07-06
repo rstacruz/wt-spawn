@@ -573,6 +573,7 @@ test_main_fails_fast_on_missing_dependency() {
   echo "$output" | grep -qi "missing.*dependencies" || fail "error should mention missing dependencies"
   assert_not_called "pi " "pi never called when wt is missing"
   assert_not_called "claude " "claude never called when wt is missing"
+  assert_not_called "opencode " "opencode never called when wt is missing"
 }
 
 test_auto_harness_neither_errors() {

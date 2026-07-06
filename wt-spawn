@@ -389,7 +389,7 @@ ensure_dependencies() {
   done
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "Error: missing required dependencies: ${missing[*]}" >&2
-    echo "Install them and try again. See https://github.com/rstacruz/wt-spawn#dependencies" >&2
+    echo "Install them and try again. See https://github.com/rstacruz/wt-spawn#installation" >&2
     return 1
   fi
 }
