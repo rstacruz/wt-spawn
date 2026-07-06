@@ -18,6 +18,7 @@ git()    { log_call "git" "$@"; }
 gh()     { log_call "gh" "$@"; }
 herdr()  { log_call "herdr" "$@"; }
 cmux()   { log_call "cmux" "$@"; }
+zellij() { log_call "zellij" "$@"; }
 jq()     { command jq "$@"; }
 
 # --- Source the code under test ---
@@ -523,6 +524,73 @@ test_ensure_valid_infer_harness_missing_binary() {
   output=$(unset -f claude; PATH=""; ensure_valid_infer_harness 2>&1) && status=$? || status=$?
   assertEquals "missing claude binary is invalid" 1 "$status"
   echo "$output" | grep -qi 'not installed' || fail "error message should mention not installed"
+}
+
+test_get_muxer_type_zellij() {
+  # Simulate zellij environment: ZELLIJ set, no cmux/herdr
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT TMUX
+  export ZELLIJ=1
+  assertEquals "zellij" "$(get_muxer_type)"
+  unset ZELLIJ
+}
+
+test_zellij_integration() {
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT TMUX
+  export ZELLIJ=1
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/zellij-test", "name": "Zellij Test"}'
+  }
+
+  zellij() {
+    log_call "zellij" "$@"
+  }
+
+  main -a sonnet -p "zellij integration" --no-create-pr
+
+  assert_called "zellij action new-tab" "zellij new-tab called"
+  assert_called "--cwd $FAKE_WT" "zellij tab with correct cwd"
+  assert_called "--name Zellij Test" "zellij tab with correct name"
+  assert_called "--close-on-exit" "zellij tab with close-on-exit"
+  assert_called "bash -c bash" "zellij tab runs cmdfile"
+  assert_not_called "herdr " "herdr not called"
+  assert_not_called "cmux " "cmux not called"
+
+  unset ZELLIJ
+}
+
+test_zellij_create_tab_muxer_display() {
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT TMUX
+  export ZELLIJ=1
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/zellij-muxer", "name": "Zellij Muxer"}'
+  }
+
+  zellij() {
+    log_call "zellij" "$@"
+  }
+
+  local output
+  output=$(main -a sonnet -p "zellij muxer display" --no-create-pr 2>&1) || true
+
+  echo "$output" | grep -qF 'muxer:    zellij' || fail "muxer displayed as zellij in output"
+
+  unset ZELLIJ
 }
 
 test_invalid_infer_harness_fails_fast() {

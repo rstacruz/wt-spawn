@@ -172,10 +172,11 @@ is_using_zellij() { [[ -n "${ZELLIJ:-}" ]]; }
 # Check if running inside tmux
 is_using_tmux() { [[ -n "${TMUX:-}" ]]; }
 
-# Return the workspace orchestrator (cmux/herdr), or "none"
+# Return the workspace orchestrator (cmux/herdr/zellij), or "none"
 get_muxer_type() {
   if is_using_cmux;   then echo "cmux";   return; fi
   if is_using_herdr;  then echo "herdr";  return; fi
+  if is_using_zellij; then echo "zellij"; return; fi
   echo "none"
 }
 
@@ -461,6 +462,13 @@ cmux_create_workspace() {
     --command "bash $cmdfile; rm -f $cmdfile"
 }
 
+# Create zellij tab and run the agent command in it
+zellij_create_tab() {
+  local worktree_path="$1" display_name="$2" cmdfile="$3"
+  zellij action new-tab --cwd "$worktree_path" --name "$display_name" --close-on-exit -- \
+    bash -c "bash $cmdfile; rm -f $cmdfile"
+}
+
 # Create herdr workspace and run the agent command in its root pane
 herdr_create_workspace() {
   local worktree_path="$1" branch="$2" cmdfile="$3"
@@ -484,6 +492,10 @@ launch_agent() {
     local cmdfile
     cmdfile=$(write_cmdfile execute_cmd)
     herdr_create_workspace "$worktree_path" "$display_name" "$cmdfile"
+  elif is_using_zellij; then
+    local cmdfile
+    cmdfile=$(write_cmdfile execute_cmd)
+    zellij_create_tab "$worktree_path" "$display_name" "$cmdfile"
   else
     rename_current_window "$display_name"
     cd "$worktree_path"
