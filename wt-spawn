@@ -400,7 +400,7 @@ ask_infer_model() {
         --pure \
         --model "$model" \
         --auto \
-        --format json 2>&1 | \
+        --format json | \
         jq -r 'select(.type == "text") | .part.text'
       ;;
   esac
