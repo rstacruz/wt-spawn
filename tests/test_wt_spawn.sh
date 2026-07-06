@@ -544,6 +544,38 @@ test_auto_harness_resolves_opencode() {
   )
 }
 
+test_ensure_dependencies_all_present() {
+  ensure_dependencies || fail "ensure_dependencies failed when all deps present"
+}
+
+test_ensure_dependencies_missing_one() {
+  local output status
+  output=$(unset -f wt; PATH="" ensure_dependencies 2>&1) && status=$? || status=$?
+  assertEquals "missing wt is error" 1 "$status"
+  echo "$output" | grep -q "missing required dependencies:.* wt" || fail "error should mention missing wt"
+  echo "$output" | grep -qi "Error:" || fail "error should say Error"
+}
+
+test_ensure_dependencies_missing_multiple() {
+  local output status
+  output=$(unset -f wt jq git; PATH="" ensure_dependencies 2>&1) && status=$? || status=$?
+  assertEquals "all missing is error" 1 "$status"
+  echo "$output" | grep -qE "missing.* wt( |\$)" || fail "error should mention wt"
+  echo "$output" | grep -q " jq " || fail "error should mention jq"
+  echo "$output" | grep -q " git" || fail "error should mention git"
+}
+
+test_main_fails_fast_on_missing_dependency() {
+  local output status
+  output=$(unset -f wt jq git claude pi; PATH="" main --no-create-pr -a sonnet "fix bug" 2>&1) && status=$? || status=$?
+
+  assertEquals "main exits on missing dep" 2 "$status"
+  echo "$output" | grep -qi "missing.*dependencies" || fail "error should mention missing dependencies"
+  assert_not_called "pi " "pi never called when wt is missing"
+  assert_not_called "claude " "claude never called when wt is missing"
+  assert_not_called "opencode " "opencode never called when wt is missing"
+}
+
 test_auto_harness_neither_errors() {
   INFER_HARNESS=auto
   local output status

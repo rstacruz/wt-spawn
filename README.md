@@ -4,8 +4,11 @@ Create git worktrees and delegate tasks to AI agents.
 
 ## Installation
 
-- Install [worktrunk](https://github.com/max-sixty/worktrunk).
-- Copy [`wt-spawn`](./wt-spawn) to a bin directory (eg, ~/.local/bin).
+- **bash** >= 4.0 — macOS ships bash 3.2; upgrade: `brew install bash`
+- **[worktrunk](https://github.com/max-sixty/worktrunk)** (provides the `wt` command) — `brew install max-sixty/tap/worktrunk`
+- **jq** — `brew install jq` (macOS) or `apt install jq` (Linux)
+- **git** — pre-installed on most systems
+- Copy [`wt-spawn`](./wt-spawn) to a bin directory (eg, `~/.local/bin`).
 - Install Claude Code or OpenCode (works out of the box). Alternatively, [configure](#configuration) your favourite agent.
 
 ## Usage
