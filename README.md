@@ -98,16 +98,16 @@ Agents can be configured. Here are the defaults:
 
 ```sh
 # ~/.config/wt-spawn/config.sh
-AGENTS[pi]="pi"
-AGENTS[claude]="claude --dangerously-skip-permissions"
-AGENTS[sonnet]="claude --model sonnet --dangerously-skip-permissions"
-AGENTS[haiku]="claude --model haiku --dangerously-skip-permissions"
-AGENTS[opus]="claude --model opus --dangerously-skip-permissions"
-AGENTS[fable]="claude --model fable --dangerously-skip-permissions"
-AGENTS[codex]="codex --sandbox workspace-write --ask-for-approval never"
-AGENTS[gpt-5.4]="codex --sandbox workspace-write --ask-for-approval never --model gpt-5.4"
-AGENTS[gpt-5.5]="codex --sandbox workspace-write --ask-for-approval never --model gpt-5.5"
-AGENTS[opencode]="opencode --auto --prompt"
+AGENTS[claude]='claude --dangerously-skip-permissions'
+AGENTS[codex]='codex --sandbox workspace-write --ask-for-approval never'
+AGENTS[fable]='claude --model fable --dangerously-skip-permissions'
+AGENTS[gpt-5.4]='codex --sandbox workspace-write --ask-for-approval never --model gpt-5.4'
+AGENTS[gpt-5.5]='codex --sandbox workspace-write --ask-for-approval never --model gpt-5.5'
+AGENTS[haiku]='claude --model haiku --dangerously-skip-permissions'
+AGENTS[opencode]='opencode --auto --prompt'
+AGENTS[opus]='claude --model opus --dangerously-skip-permissions'
+AGENTS[pi]='pi'
+AGENTS[sonnet]='claude --model sonnet --dangerously-skip-permissions'
 ```
 
 ## Auto branch naming
