@@ -82,9 +82,10 @@ wt-spawn -t "plan" -p "fix issue XYZ-1234"
 
 Supports the following agents by default, and more can be added via custom configuration.
 
-- Claude Code
-- Pi
-- Codex
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- [Pi](https://github.com/earendil-works/pi-coding-agent)
+- [Codex](https://github.com/openai/codex)
+- [OpenCode](https://opencode.ai/)
 - ...bring your own via config
 
 Agents can be chosen using `-a/--agent <name>`.
@@ -106,6 +107,7 @@ AGENTS[fable]="claude --model fable --dangerously-skip-permissions"
 AGENTS[codex]="codex --sandbox workspace-write --ask-for-approval never"
 AGENTS[gpt-5.4]="codex --sandbox workspace-write --ask-for-approval never --model gpt-5.4"
 AGENTS[gpt-5.5]="codex --sandbox workspace-write --ask-for-approval never --model gpt-5.5"
+AGENTS[opencode]="opencode --auto --prompt"
 ```
 
 ## Auto branch naming

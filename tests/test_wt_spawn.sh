@@ -273,6 +273,7 @@ test_print_default_config_new_agents() {
   grep -Fq "AGENTS[codex]=" <<<"$output" || fail "missing AGENTS[codex]"
   grep -Fq "AGENTS[gpt-5.4]=" <<<"$output" || fail "missing AGENTS[gpt-5.4]"
   grep -Fq "AGENTS[gpt-5.5]=" <<<"$output" || fail "missing AGENTS[gpt-5.5]"
+  grep -Fq "AGENTS[opencode]=" <<<"$output" || fail "missing AGENTS[opencode]"
 
   # Old agents absent
   ! grep -Fq "AGENTS[pi-deepseek]=" <<<"$output" || fail "unexpected AGENTS[pi-deepseek]"

@@ -20,6 +20,7 @@ AGENTS[fable]="claude --model fable --dangerously-skip-permissions"
 AGENTS[codex]="codex --sandbox workspace-write --ask-for-approval never"
 AGENTS[gpt-5.4]="codex --sandbox workspace-write --ask-for-approval never --model gpt-5.4"
 AGENTS[gpt-5.5]="codex --sandbox workspace-write --ask-for-approval never --model gpt-5.5"
+AGENTS[opencode]="opencode --auto --prompt"
 
 # Prompt templates for -t/--template flag
 declare -A PROMPT_TEMPLATES=()
