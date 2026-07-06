@@ -793,8 +793,6 @@ test_get_muxer_type_iterm2_lower_priority_than_muxers() {
 
 test_iterm2_create_workspace() {
   local fake_wt="/tmp/wt-test-workspace" fake_cmdfile="/tmp/wt-cmd-ABCDEF"
-  local osascript_log
-  osascript_log=$(mktemp "${TMPDIR:-/tmp}/wt-osascript-log-XXXXXX")
 
   # Mock osascript: log args
   osascript() {
@@ -804,10 +802,10 @@ test_iterm2_create_workspace() {
   iterm2_create_workspace "$fake_wt" "Test Name" "$fake_cmdfile"
 
   assert_called "osascript" "osascript was called"
-  # Paths are passed as osascript argv (not stdin)
+  # Paths and display name are passed as osascript argv
   assert_called "$fake_wt" "worktree_path passed to osascript"
+  assert_called "Test Name" "display_name passed to osascript"
   assert_called "$fake_cmdfile" "cmdfile passed to osascript"
-  rm -f "$osascript_log"
 }
 
 test_launch_agent_iterm2() {
@@ -838,6 +836,17 @@ test_launch_agent_iterm2() {
   assert_not_called "zellij " "zellij not called"
 
   unset TERM_PROGRAM
+}
+
+test_tmux_priority_over_iterm2() {
+  # tmux inside iTerm2: tmux should win
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT ZELLIJ
+  export TERM_PROGRAM="iTerm.app"
+  export TMUX="/tmp/tmux-1000/default,1234,0"
+
+  assertEquals "tmux" "$(get_muxer_type)"
+
+  unset TERM_PROGRAM TMUX
 }
 
 test_iterm2_muxer_display() {

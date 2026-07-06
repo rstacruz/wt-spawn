@@ -175,13 +175,13 @@ is_using_tmux() { [[ -n "${TMUX:-}" ]]; }
 # Check if running inside iTerm2
 is_using_iterm2() { [[ "${TERM_PROGRAM:-}" == "iTerm.app" ]]; }
 
-# Return the workspace orchestrator (cmux/herdr/zellij), or "none"
+# Return the workspace orchestrator (cmux/herdr/zellij/tmux/iterm2), or "none"
 get_muxer_type() {
   if is_using_cmux;   then echo "cmux";   return; fi
   if is_using_herdr;  then echo "herdr";  return; fi
   if is_using_zellij; then echo "zellij"; return; fi
-  if is_using_iterm2; then echo "iterm2"; return; fi
   if is_using_tmux;   then echo "tmux";   return; fi
+  if is_using_iterm2; then echo "iterm2"; return; fi
   echo "none"
 }
 
@@ -461,14 +461,16 @@ write_cmdfile() {
 # Create iTerm2 tab and run the agent command in it
 iterm2_create_workspace() {
   local worktree_path="$1" display_name="$2" cmdfile="$3"
-  osascript - "$worktree_path" "$cmdfile" <<'APPLESCRIPT'
+  osascript - "$worktree_path" "$display_name" "$cmdfile" <<'APPLESCRIPT'
 on run argv
   set worktree_path to item 1 of argv
-  set cmdfile to item 2 of argv
+  set display_name to item 2 of argv
+  set cmdfile to item 3 of argv
   tell application "iTerm"
     tell current window
       set newTab to (create tab with default profile)
       tell current session of newTab
+        set name to display_name
         write text "cd " & quoted form of worktree_path & " && bash " & quoted form of cmdfile & "; rm -f " & quoted form of cmdfile
       end tell
     end tell
@@ -527,14 +529,14 @@ launch_agent() {
     local cmdfile
     cmdfile=$(write_cmdfile execute_cmd)
     zellij_create_tab "$worktree_path" "$display_name" "$cmdfile"
-  elif is_using_iterm2; then
-    local cmdfile
-    cmdfile=$(write_cmdfile execute_cmd)
-    iterm2_create_workspace "$worktree_path" "$display_name" "$cmdfile"
   elif is_using_tmux; then
     local cmdfile
     cmdfile=$(write_cmdfile execute_cmd)
     tmux_create_window "$worktree_path" "$display_name" "$cmdfile"
+  elif is_using_iterm2; then
+    local cmdfile
+    cmdfile=$(write_cmdfile execute_cmd)
+    iterm2_create_workspace "$worktree_path" "$display_name" "$cmdfile"
   else
     rename_current_window "$display_name"
     cd "$worktree_path"
