@@ -39,6 +39,7 @@ wt-spawn automatically creates workspaces using the multiplexer being used. No c
 - [Herdr](https://herdr.dev/)
 - [cmux](https://github.com/craigsc/cmux)
 - [Zellij](https://zellij.dev/) (0.44+)
+- [tmux](https://github.com/tmux/tmux)
 
 ## Configuration
 
