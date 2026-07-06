@@ -379,6 +379,21 @@ ensure_valid_infer_harness() {
   esac
 }
 
+# Check that required external commands are installed.
+# Prints a single error listing all missing commands and returns 1.
+ensure_dependencies() {
+  local -a missing=()
+  local cmd
+  for cmd in wt jq git; do
+    command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
+  done
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "Error: missing required dependencies: ${missing[*]}" >&2
+    echo "Install them and try again. See https://github.com/rstacruz/wt-spawn#dependencies" >&2
+    return 1
+  fi
+}
+
 # Call the configured harness with a prompt. Uses INFER_HARNESS/INFER_MODEL.
 ask_infer_model() {
   local prompt="$1" model
@@ -695,6 +710,8 @@ $description"
     echo "Error: empty prompt" >&2
     exit 1
   fi
+
+  ensure_dependencies || exit 2
 
   # Resolve branch and workspace name
   local ws_name
