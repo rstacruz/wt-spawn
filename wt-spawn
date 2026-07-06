@@ -188,20 +188,19 @@ sorted_agents() {
 # Print usage text and available agents
 show_help() {
   cat <<EOF
-Usage: wt-spawn [-a <agent>] [-t <template>] [-p <prompt>] [-b <branch>]
+Usage: wt-spawn [-a <agent>] [-t <template>] [-b <branch>] [prompt...]
 
-Starts an agent in a new git worktree. Opens \$EDITOR to draft task when -p is omitted.
-Exits shortly after (~10 seconds) while the agent will be running in the background.
+Starts an agent in a new git worktree. Opens \$EDITOR to draft task when
+no prompt is given.
 
 OPTIONS:
   -b, --base <branch>     Base branch (passed to wt switch and gh pr create)
-  -a, --agent <agent>     Agent to use (required, unless set via a #agent-name tag in prompt)
+  -a, --agent <agent>     Agent to use (required, or use #agent-name tag)
   -t, --template <name>   Prompt template: plan, implement
-  -p, --prompt <text>     Task prompt (skips \$EDITOR). Use @file for file, - for stdin.
   --create-pr             Create a draft PR after worktree creation
   --no-create-pr          Skip draft PR creation
   --print-default-config  Print current defaults as shell config to stdout
-  --init                  Write config to ~/.config/wt-spawn/config.sh (refuses if exists)
+  --init                  Write config to ~/.config/wt-spawn/config.sh
   -h, --help              Show this help message and exit
 
 AVAILABLE AGENTS:
@@ -221,15 +220,16 @@ EOF
   cat <<'EOF'
 
 EXAMPLES:
-  wt-spawn -a sonnet -t plan -p "add redis caching"
-  wt-spawn -a sonnet -p @prompt.txt
-  wt-spawn -a sonnet -p - < prompt.txt
-  wt-spawn -p "#plan #sonnet add redis caching"
+  wt-spawn -a sonnet "fix bug"
+  wt-spawn -a sonnet -t plan "add redis caching"
+  wt-spawn -a sonnet @prompt.txt
+  wt-spawn -a sonnet - < prompt.txt
+  wt-spawn "#sonnet #plan fix issue #1234"
 
 HASHTAGS:
   Agents and templates can be passed as hashtags:
 
-  wt-spawn -p "#sonnet #plan fix issue #1234"
+  wt-spawn "#sonnet #plan fix issue #1234"
   # same as -a sonnet -t plan
 EOF
 }
@@ -505,7 +505,8 @@ launch_agent() {
 
 # Entry point: parse args, resolve description, infer branch, create worktree, launch
 main() {
-  local agent="" prompt_value="" prompt_set=0 template="" create_pr="" base=""
+  local agent="" template="" create_pr="" base=""
+  local positional_args=()
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -515,12 +516,6 @@ main() {
         exit 2
       fi
       agent="$2"; shift 2 ;;
-    -p | --prompt)
-      if [[ $# -lt 2 ]]; then
-        echo "Error: $1 requires an argument" >&2
-        exit 2
-      fi
-      prompt_value="$2"; prompt_set=1; shift 2 ;;
     -b | --base)
       if [[ $# -lt 2 ]]; then
         echo "Error: $1 requires an argument" >&2
@@ -535,12 +530,11 @@ main() {
       template="$2"; shift 2 ;;
     --create-pr)   create_pr=1; shift ;;
     --no-create-pr) create_pr=0; shift ;;
-    -h | --help) show_help; exit 0 ;;
-    *)
-      echo "Unknown option: $1" >&2
-      echo "Use --help for usage information." >&2
-      exit 2
-      ;;
+    -h | --help)   show_help; exit 0 ;;
+    --)            shift; positional_args+=("$@"); break ;;
+    -)             positional_args+=("-"); shift ;;
+    -*)            echo "Unknown option: $1" >&2; exit 2 ;;
+    *)             positional_args+=("$1"); shift ;;
     esac
   done
 
@@ -569,8 +563,14 @@ main() {
   fi
 
   local raw_description was_prefilled=0
-  if (( prompt_set )); then
-    raw_description=$(resolve_description "$prompt_value")
+
+  if [[ ${#positional_args[@]} -gt 0 ]]; then
+    local first="${positional_args[0]}"
+    if [[ "$first" == "-" ]] || [[ "$first" == @* ]]; then
+      raw_description=$(resolve_description "$first")
+    else
+      raw_description="${positional_args[*]}"
+    fi
   else
     local tmpdir="${TMPDIR:-/tmp}"
     local tmpfile

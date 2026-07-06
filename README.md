@@ -12,14 +12,14 @@ Create git worktrees and delegate tasks to AI agents.
 Use wt-spawn to start a new piece of work. Pass a prompt with a supported [agent](#agents) (eg, `#sonnet` is Claude Code with Sonnet).
 
 ```sh
-wt-spawn -p "#sonnet implement the plan in ~/.plans/refactor-auth.md"
+wt-spawn "#sonnet implement the plan in ~/.plans/refactor-auth.md"
 
-# or: no arguments will open a text editor
+# or: no arguments opens a text editor
 wt-spawn
 
 # or:
-wt-spawn -p @prompt.txt   # via file
-echo "add dark mode" | wt-spawn -p -  # via stdin
+wt-spawn @prompt.txt         # via file
+echo "add dark mode" | wt-spawn -  # via stdin
 ```
 
 This will:
@@ -58,7 +58,7 @@ Config location: `${XDG_CONFIG_HOME:-~/.config}/wt-spawn/config.sh`
 Prompt templates are available via `-t/--template` or via hashtags.
 
 ```sh
-wt-spawn -p "#plan fix issue XYZ-1234"
+wt-spawn "#plan fix issue XYZ-1234"
 # Expands to the prompt:
 #
 #    Create a plan. Details: fix issue XYZ-1234
@@ -76,7 +76,7 @@ PROMPT_TEMPLATES[implement]='/goal Implement this plan as described, ensure PR t
 Templates can also be invoked via `-t/--template`:
 
 ```sh
-wt-spawn -t "plan" -p "fix issue XYZ-1234"
+wt-spawn -t "plan" "fix issue XYZ-1234"
 ```
 
 ## Agents
@@ -92,7 +92,7 @@ Supports the following agents by default, and more can be added via custom confi
 Agents can be chosen using `-a/--agent <name>`.
 
 ```sh
-wt-spawn -a "sonnet" -p "translate README.md to French, and save to README.fr.md"
+wt-spawn -a "sonnet" "translate README.md to French, and save to README.fr.md"
 ```
 
 Agents can be configured. Here are the defaults:
