@@ -552,17 +552,17 @@ test_ensure_dependencies_missing_one() {
   local output status
   output=$(unset -f wt; PATH="" ensure_dependencies 2>&1) && status=$? || status=$?
   assertEquals "missing wt is error" 1 "$status"
-  echo "$output" | grep -qi "wt" || fail "error should mention wt"
-  echo "$output" | grep -qi "missing" || fail "error should say missing"
+  echo "$output" | grep -q "missing required dependencies:.* wt" || fail "error should mention missing wt"
+  echo "$output" | grep -qi "Error:" || fail "error should say Error"
 }
 
 test_ensure_dependencies_missing_multiple() {
   local output status
   output=$(unset -f wt jq git; PATH="" ensure_dependencies 2>&1) && status=$? || status=$?
   assertEquals "all missing is error" 1 "$status"
-  echo "$output" | grep -q "wt" || fail "error should mention wt"
-  echo "$output" | grep -q "jq" || fail "error should mention jq"
-  echo "$output" | grep -q "git" || fail "error should mention git"
+  echo "$output" | grep -qE "missing.* wt( |\$)" || fail "error should mention wt"
+  echo "$output" | grep -q " jq " || fail "error should mention jq"
+  echo "$output" | grep -q " git" || fail "error should mention git"
 }
 
 test_main_fails_fast_on_missing_dependency() {
