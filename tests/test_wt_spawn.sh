@@ -19,6 +19,7 @@ gh()     { log_call "gh" "$@"; }
 herdr()  { log_call "herdr" "$@"; }
 cmux()   { log_call "cmux" "$@"; }
 zellij() { log_call "zellij" "$@"; }
+tmux()   { log_call "tmux" "$@"; }
 jq()     { command jq "$@"; }
 
 # --- Source the code under test ---
@@ -591,6 +592,72 @@ test_zellij_create_tab_muxer_display() {
   echo "$output" | grep -qF 'muxer:    zellij' || fail "muxer displayed as zellij in output"
 
   unset ZELLIJ
+}
+
+test_get_muxer_type_tmux() {
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT ZELLIJ
+  export TMUX=/tmp/tmux-1000/default,1234,0
+  assertEquals "tmux" "$(get_muxer_type)"
+  unset TMUX
+}
+
+test_tmux_integration() {
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT ZELLIJ
+  export TMUX=/tmp/tmux-1000/default,1234,0
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/tmux-test", "name": "Tmux Test"}'
+  }
+
+  tmux() {
+    log_call "tmux" "$@"
+  }
+
+  main --no-create-pr -a sonnet "tmux integration"
+
+  assert_called "tmux new-window" "tmux new-window called"
+  assert_called -- "-d" "tmux new-window detached"
+  assert_called -- "-c $FAKE_WT" "tmux window with correct cwd"
+  assert_called -- "-n Tmux Test" "tmux window with correct name"
+  assert_called "bash -c bash" "tmux window runs cmdfile"
+  assert_not_called "herdr " "herdr not called"
+  assert_not_called "cmux " "cmux not called"
+  assert_not_called "zellij " "zellij not called"
+
+  unset TMUX
+}
+
+test_tmux_create_window_muxer_display() {
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT ZELLIJ
+  export TMUX=/tmp/tmux-1000/default,1234,0
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/tmux-muxer", "name": "Tmux Muxer"}'
+  }
+
+  tmux() {
+    log_call "tmux" "$@"
+  }
+
+  local output
+  output=$(main --no-create-pr -a sonnet "tmux muxer display" 2>&1) || true
+  echo "$output" | grep -qF 'muxer:    tmux' || fail "muxer displayed as tmux in output"
+
+  unset TMUX
 }
 
 test_invalid_infer_harness_fails_fast() {
