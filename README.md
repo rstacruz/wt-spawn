@@ -20,9 +20,6 @@ wt-spawn
 # or:
 wt-spawn @prompt.txt         # via file
 echo "add dark mode" | wt-spawn -  # via stdin
-
-# skip LLM branch inference with --branch
-wt-spawn -a sonnet --branch feat/add-dark-mode "add dark mode"
 ```
 
 This will:
