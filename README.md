@@ -82,9 +82,10 @@ wt-spawn -t "plan" -p "fix issue XYZ-1234"
 
 Supports the following agents by default, and more can be added via custom configuration.
 
-- Claude Code
-- Pi
-- Codex
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- [Pi](https://github.com/earendil-works/pi-coding-agent)
+- [Codex](https://github.com/openai/codex)
+- [OpenCode](https://opencode.ai/)
 - ...bring your own via config
 
 Agents can be chosen using `-a/--agent <name>`.
@@ -97,15 +98,16 @@ Agents can be configured. Here are the defaults:
 
 ```sh
 # ~/.config/wt-spawn/config.sh
-AGENTS[pi]="pi"
-AGENTS[claude]="claude --dangerously-skip-permissions"
-AGENTS[sonnet]="claude --model sonnet --dangerously-skip-permissions"
-AGENTS[haiku]="claude --model haiku --dangerously-skip-permissions"
-AGENTS[opus]="claude --model opus --dangerously-skip-permissions"
-AGENTS[fable]="claude --model fable --dangerously-skip-permissions"
-AGENTS[codex]="codex --sandbox workspace-write --ask-for-approval never"
-AGENTS[gpt-5.4]="codex --sandbox workspace-write --ask-for-approval never --model gpt-5.4"
-AGENTS[gpt-5.5]="codex --sandbox workspace-write --ask-for-approval never --model gpt-5.5"
+AGENTS[claude]='claude --dangerously-skip-permissions'
+AGENTS[codex]='codex --sandbox workspace-write --ask-for-approval never'
+AGENTS[fable]='claude --model fable --dangerously-skip-permissions'
+AGENTS[gpt-5.4]='codex --sandbox workspace-write --ask-for-approval never --model gpt-5.4'
+AGENTS[gpt-5.5]='codex --sandbox workspace-write --ask-for-approval never --model gpt-5.5'
+AGENTS[haiku]='claude --model haiku --dangerously-skip-permissions'
+AGENTS[opencode]='opencode --auto --prompt'
+AGENTS[opus]='claude --model opus --dangerously-skip-permissions'
+AGENTS[pi]='pi'
+AGENTS[sonnet]='claude --model sonnet --dangerously-skip-permissions'
 ```
 
 ## Auto branch naming
