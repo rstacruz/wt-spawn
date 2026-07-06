@@ -2,43 +2,36 @@
 
 Create git worktrees and delegate tasks to AI agents.
 
-<https://github.com/rstacruz/wt-spawn>
+## Installation
+
+- Install [worktrunk](https://github.com/max-sixty/worktrunk).
+- Copy [`wt-spawn`](./wt-spawn) to a bin directory (eg, ~/.local/bin).
 
 ## Usage
 
-```
-wt-spawn [-a/--agent <agent>] [-p/--prompt <prompt>]
-```
-
-Opens `$EDITOR` (or uses `--prompt`) to draft a task, infers a branch name, creates a worktree, and launches the chosen agent.
-
-Agents can be chosen via `--agent` or `#tags`:
+Use wt-spawn to start a new piece of work. Pass a prompt with a supported [agent](#agents) (eg, `#sonnet` is Claude Code with Sonnet).
 
 ```sh
-wt-spawn -p "#sonnet fix issue #1234"
-# same as: wt-spawn --agent "sonnet" --prompt "fix issue #1234"
+wt-spawn -p "#sonnet implement the plan in ~/.plans/refactor-auth.md"
+
+# or: no arguments will open a text editor
+wt-spawn
 ```
 
-It will:
+This will:
 
 - Create a branch and worktree via *worktrunk*
 - Create an empty draft PR
 - Spawn Claude Code with the Sonnet model in your multiplexer (eg, cmux or Herdr)
 
-## Tool support and requirements
-
-Requires:
-
-- [worktrunk](https://github.com/max-sixty/worktrunk)
-
 ## Multiplexers
 
-wt-spawn automatically creates workspaces using the multiplexer being used. Supported multiplexers:
+wt-spawn automatically creates workspaces using the multiplexer being used. No configuration or parameters needed, it will auto-detect whatever may be running. Supported multiplexers:
 
 - [Herdr](https://herdr.dev/)
 - [cmux](https://github.com/craigsc/cmux)
 
-## Config
+## Configuration
 
 Generate default config:
 
