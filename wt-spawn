@@ -196,7 +196,7 @@ no prompt is given.
 
 OPTIONS:
   -b, --branch <name>     Branch name (skips LLM inference)
-      --base <branch>      Base branch (passed to wt switch and gh pr create)
+  --base <branch>          Base branch (passed to wt switch and gh pr create)
   -a, --agent <agent>     Agent to use (required, or use #agent-name tag)
   -t, --template <name>   Prompt template: plan, implement
   --create-pr             Create a draft PR after worktree creation
@@ -403,6 +403,10 @@ derive_workspace_name() {
   # Dashes and underscores → spaces
   name="${name//-/ }"
   name="${name//_/ }"
+  # Collapse consecutive spaces, trim leading/trailing
+  name="$(tr -s ' ' <<< "$name")"
+  name="${name# }"
+  name="${name% }"
   # Sentence case: lowercase all, then capitalize first letter
   local lower
   lower="$(tr '[:upper:]' '[:lower:]' <<< "$name")"

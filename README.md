@@ -134,14 +134,3 @@ wt-spawn -a sonnet --branch feat/add-redis "add redis caching"
 # branch = feat/add-redis, workspace name = Add redis
 ```
 
-**Breaking change:** `-b` was previously a short flag for `--base`. It is now `--branch`.
-Use the long `--base` to set the base branch.
-
-```sh
-# Old (broken)
-wt-spawn -a sonnet -b main "fix bug"
-
-# New
-wt-spawn -a sonnet --base main --branch feat/fix-bug "fix bug"
-```
-

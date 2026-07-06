@@ -785,6 +785,9 @@ test_branch_name_derivation() {
   assertEquals "Test" "$(derive_workspace_name "test")"
   assertEquals "Some branch" "$(derive_workspace_name "feature/some_branch")"
   assertEquals "Abc" "$(derive_workspace_name "ABC")"
+  # Collapse consecutive separators
+  assertEquals "My fix" "$(derive_workspace_name "feat/my--fix")"
+  assertEquals "Foo" "$(derive_workspace_name "feat/_foo")"
 }
 
 test_branch_short_flag() {
