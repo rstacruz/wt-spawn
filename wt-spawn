@@ -71,7 +71,7 @@ print_default_config() {
 HEADER
 
   # --- Inference harness/model ---
-  printf '# Harness for branch/workspace name inference: "pi" or "claude"\n'
+  printf '# Harness for branch/workspace name inference: "pi", "claude", or "opencode"\n'
   printf "INFER_HARNESS='%s'\n" "${INFER_HARNESS//\'/\'\\\'\'}"
   printf '\n'
   printf '# Model for inference (fast/cheap is fine). Empty = auto-pick from INFER_HARNESS.\n'
@@ -333,9 +333,9 @@ parse_hashtags() {
 # Resolve the effective inference model from INFER_MODEL and INFER_HARNESS
 resolve_infer_model() {
   case "$INFER_HARNESS" in
-    pi|claude) ;;
+    pi|claude|opencode) ;;
     *)
-      echo "Error: unknown INFER_HARNESS '$INFER_HARNESS' (expected 'pi' or 'claude')" >&2
+      echo "Error: unknown INFER_HARNESS '$INFER_HARNESS' (expected 'pi', 'claude', or 'opencode')" >&2
       return 1
       ;;
   esac
@@ -345,8 +345,9 @@ resolve_infer_model() {
     return
   fi
   case "$INFER_HARNESS" in
-    claude) echo "haiku" ;;
-    pi)     echo "openai-codex/gpt-5.4-mini" ;;
+    claude)   echo "haiku" ;;
+    pi)       echo "openai-codex/gpt-5.4-mini" ;;
+    opencode) echo "opencode/big-pickle" ;;
   esac
 }
 
@@ -354,9 +355,9 @@ resolve_infer_model() {
 # returns 1 if invalid or missing.
 ensure_valid_infer_harness() {
   case "$INFER_HARNESS" in
-    pi|claude) ;;
+    pi|claude|opencode) ;;
     *)
-      echo "Error: unknown INFER_HARNESS '$INFER_HARNESS' (expected 'pi' or 'claude')" >&2
+      echo "Error: unknown INFER_HARNESS '$INFER_HARNESS' (expected 'pi', 'claude', or 'opencode')" >&2
       return 1
       ;;
   esac
@@ -393,6 +394,14 @@ ask_infer_model() {
         --setting-sources "" \
         --system-prompt "" \
         "$prompt" < /dev/null
+      ;;
+    opencode)
+      opencode run "$prompt" \
+        --pure \
+        --model "$model" \
+        --auto \
+        --format json | \
+        jq -r 'select(.type == "text") | .part.text'
       ;;
   esac
 }
