@@ -100,7 +100,7 @@ test_main_herdr_integration() {
     fi
   }
 
-  main --no-create-pr -a sonnet "add test feature"
+  main --no-pr -a sonnet "add test feature"
 
   # Single pi call → worktree → workspace name → herdr dispatch
   assert_call_count "pi " 1 "exactly one pi call"
@@ -140,7 +140,7 @@ test_retry_on_first_failure() {
     fi
   }
 
-  main --no-create-pr -a sonnet "add retry test"
+  main --no-pr -a sonnet "add retry test"
 
   assert_call_count "pi " 2 "exactly two pi calls (retry)"
   assert_called "feat/retry-works" "branch from retry"
@@ -165,7 +165,7 @@ test_strips_markdown_fenced_json() {
     fi
   }
 
-  main --no-create-pr -a sonnet "add fenced json test"
+  main --no-pr -a sonnet "add fenced json test"
 
   assert_call_count "pi " 1 "single pi call, no retry needed"
   assert_called "feat/fenced-json" "branch parsed despite code fence"
@@ -263,7 +263,7 @@ test_non_prefixed_branch_accepted() {
     fi
   }
 
-  main --no-create-pr -a sonnet "add redis caching"
+  main --no-pr -a sonnet "add redis caching"
 
   assert_called "--create add-redis-caching" "non-prefixed branch accepted"
   assert_call_count "pi " 1 "exactly one pi call for valid output"
@@ -305,7 +305,7 @@ test_hashtag_agent_resolves() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main --no-create-pr "#sonnet fix bug"
+    main --no-pr "#sonnet fix bug"
   )
   assert_called "claude --model sonnet" "sonnet agent invoked"
   assert_called "fix bug" "prompt with tag stripped"
@@ -316,7 +316,7 @@ test_hashtag_template_resolves() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main --no-create-pr -a sonnet "#plan fix bug"
+    main --no-pr -a sonnet "#plan fix bug"
   )
   assert_called "Create a plan. Details:" "template text prepended"
   assert_called "fix bug" "body kept"
@@ -327,7 +327,7 @@ test_hashtag_agent_and_template() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main --no-create-pr "#plan #sonnet fix bug"
+    main --no-pr "#plan #sonnet fix bug"
   )
   assert_called "claude --model sonnet" "sonnet agent invoked"
   assert_called "Create a plan. Details:" "template text prepended"
@@ -338,7 +338,7 @@ test_hashtag_midtext_untouched() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main --no-create-pr "#sonnet fix issue #1234"
+    main --no-pr "#sonnet fix issue #1234"
   )
   assert_called "fix issue #1234" "mid-text hashtag left literal"
 }
@@ -351,7 +351,7 @@ test_hashtag_multiline_prompt_body() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main --no-create-pr -a sonnet $'#plan\nfix bug across multiple\nlines of detail'
+    main --no-pr -a sonnet $'#plan\nfix bug across multiple\nlines of detail'
   )
   assert_called "Create a plan. Details:" "template resolved despite newline after tag"
   assert_called "fix bug across multiple" "multi-line body preserved"
@@ -362,14 +362,14 @@ test_hashtag_lone_template_empty_body() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/plan-only", "name": "Plan only"}'; }
-    main --no-create-pr -a sonnet "#plan"
+    main --no-pr -a sonnet "#plan"
   )
   assert_called "Create a plan. Details:" "template text alone is not an empty prompt"
 }
 
 test_hashtag_lone_agent_empty_body_errors() {
   local status=0
-  ( main --no-create-pr "#sonnet" ) || status=$?
+  ( main --no-pr "#sonnet" ) || status=$?
   assertEquals "agent tag alone has no body to fall back on" 1 "$status"
 }
 
@@ -378,7 +378,7 @@ test_hashtag_flag_wins() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main --no-create-pr -a opus "#sonnet fix bug"
+    main --no-pr -a opus "#sonnet fix bug"
   )
   assert_called "claude --model opus" "explicit -a flag wins over #tag"
   assert_not_called "--model sonnet" "hashtag agent not used"
@@ -387,7 +387,7 @@ test_hashtag_flag_wins() {
 
 test_no_agent_no_hashtag_errors() {
   local status=0
-  ( main --no-create-pr "fix bug" ) || status=$?
+  ( main --no-pr "fix bug" ) || status=$?
   assertEquals "agent required when absent from flag and prompt" 2 "$status"
 }
 
@@ -399,7 +399,7 @@ test_hashtag_via_file() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main --no-create-pr "@$promptfile"
+    main --no-pr "@$promptfile"
   )
   assert_called "claude --model sonnet" "sonnet resolved from @file prompt"
   assert_called "fix bug via file" "tag stripped from @file prompt"
@@ -411,7 +411,7 @@ test_hashtag_via_stdin() {
     unset HERDR_ENV
     wt() { log_call "wt" "$@"; printf '{"path":"%s"}\n' "$FAKE_WT"; }
     claude() { log_call "claude" "$@"; echo '{"branch": "feat/fix-bug", "name": "Fix bug"}'; }
-    main --no-create-pr - <<< "#sonnet fix bug via stdin"
+    main --no-pr - <<< "#sonnet fix bug via stdin"
   )
   assert_called "claude --model sonnet" "sonnet resolved from stdin prompt"
   assert_called "fix bug via stdin" "tag stripped from stdin prompt"
@@ -434,7 +434,7 @@ test_default_harness_is_auto() {
     fi
   }
 
-  main --no-create-pr -a sonnet "use auto by default"
+  main --no-pr -a sonnet "use auto by default"
 
   assert_called "claude" "claude called for branch/name inference (auto-resolved from default)"
   assert_called "--model haiku" "auto-picked haiku model"
@@ -458,7 +458,7 @@ test_infer_harness_pi() {
     fi
   }
 
-  main --no-create-pr -a sonnet "use pi explicitly"
+  main --no-pr -a sonnet "use pi explicitly"
 
   assert_called "pi " "pi called when INFER_HARNESS=pi"
   assert_not_called "claude " "claude not called when harness is pi"
@@ -567,7 +567,7 @@ test_ensure_dependencies_missing_multiple() {
 
 test_main_fails_fast_on_missing_dependency() {
   local output status
-  output=$(unset -f wt jq git claude pi; PATH="" main --no-create-pr -a sonnet "fix bug" 2>&1) && status=$? || status=$?
+  output=$(unset -f wt jq git claude pi; PATH="" main --no-pr -a sonnet "fix bug" 2>&1) && status=$? || status=$?
 
   assertEquals "main exits on missing dep" 2 "$status"
   echo "$output" | grep -qi "missing.*dependencies" || fail "error should mention missing dependencies"
@@ -623,7 +623,7 @@ test_zellij_integration() {
     log_call "zellij" "$@"
   }
 
-  main --no-create-pr -a sonnet "zellij integration"
+  main --no-pr -a sonnet "zellij integration"
 
   assert_called "zellij action new-tab" "zellij new-tab called"
   assert_called "--cwd $FAKE_WT" "zellij tab with correct cwd"
@@ -656,7 +656,7 @@ test_zellij_create_tab_muxer_display() {
   }
 
   local output
-  output=$(main --no-create-pr -a sonnet "zellij muxer display" 2>&1) || true
+  output=$(main --no-pr -a sonnet "zellij muxer display" 2>&1) || true
 
   echo "$output" | grep -qF 'muxer:    zellij' || fail "muxer displayed as zellij in output"
 
@@ -689,7 +689,7 @@ test_tmux_integration() {
     log_call "tmux" "$@"
   }
 
-  main --no-create-pr -a sonnet "tmux integration"
+  main --no-pr -a sonnet "tmux integration"
 
   assert_called "tmux new-window" "tmux new-window called"
   assert_called -- "-d" "tmux new-window detached"
@@ -723,7 +723,7 @@ test_tmux_create_window_muxer_display() {
   }
 
   local output
-  output=$(main --no-create-pr -a sonnet "tmux muxer display" 2>&1) || true
+  output=$(main --no-pr -a sonnet "tmux muxer display" 2>&1) || true
   echo "$output" | grep -qF 'muxer:    tmux' || fail "muxer displayed as tmux in output"
 
   unset TMUX
@@ -733,7 +733,7 @@ test_invalid_infer_harness_fails_fast() {
   INFER_HARNESS=bogus
 
   local output status
-  output=$(main --no-create-pr -a sonnet "should never run" 2>&1) && status=$? || status=$?
+  output=$(main --no-pr -a sonnet "should never run" 2>&1) && status=$? || status=$?
 
   assertEquals "main exits non-zero on invalid INFER_HARNESS" 2 "$status"
   echo "$output" | grep -qi 'unknown INFER_HARNESS' || fail "error message should mention unknown INFER_HARNESS"
@@ -760,7 +760,7 @@ test_positional_args_joined() {
     fi
   }
 
-  main --no-create-pr -a sonnet fix bug
+  main --no-pr -a sonnet fix bug
 
   assert_called "fix bug" "positional args joined into prompt"
   assert_call_count "pi " 1 "exactly one pi call"
@@ -784,7 +784,7 @@ test_positional_stdin() {
     fi
   }
 
-  main --no-create-pr -a sonnet - <<< "fix via stdin"
+  main --no-pr -a sonnet - <<< "fix via stdin"
 
   assert_called "feat/stdin-test" "stdin prompt read via -"
   assert_called "fix via stdin" "stdin content in prompt"
@@ -811,7 +811,7 @@ test_positional_file() {
     fi
   }
 
-  main --no-create-pr -a sonnet "@$promptfile"
+  main --no-pr -a sonnet "@$promptfile"
 
   assert_called "feat/file-test" "file prompt read via @file"
   assert_called "fix via file" "file content in prompt"
@@ -839,7 +839,7 @@ test_branch_flag_skips_inference() {
     fi
   }
 
-  main --no-create-pr -a sonnet --branch feat/my-fix "fix stuff"
+  main --no-pr -a sonnet --branch feat/my-fix "fix stuff"
 
   assert_not_called "pi " "pi inference skipped when --branch used"
   assert_called "--create feat/my-fix" "worktree created on given branch"
@@ -879,7 +879,7 @@ test_branch_short_flag() {
     fi
   }
 
-  main --no-create-pr -a sonnet -b feat/short-flag "fix stuff"
+  main --no-pr -a sonnet -b feat/short-flag "fix stuff"
 
   assert_not_called "pi " "pi inference skipped with -b"
   assert_called "--create feat/short-flag" "worktree created via -b"
@@ -905,7 +905,7 @@ test_base_long_flag_only() {
     fi
   }
 
-  main --no-create-pr -a sonnet --base main "fix stuff"
+  main --no-pr -a sonnet --base main "fix stuff"
 
   assert_called "--base main" "--base flag passed to wt"
   assert_called "pi " "pi still called for inference"
@@ -922,7 +922,7 @@ test_branch_rejects_invalid() {
   }
 
   local output status
-  output=$(main --no-create-pr -a sonnet --branch "has space" "fix stuff" 2>&1) && status=$? || status=$?
+  output=$(main --no-pr -a sonnet --branch "has space" "fix stuff" 2>&1) && status=$? || status=$?
 
   assertEquals "main exits non-zero on invalid branch" 1 "$status"
   echo "$output" | grep -qi 'invalid branch' || fail "error message should mention invalid branch"
@@ -945,7 +945,7 @@ test_branch_skips_harness_check() {
     fi
   }
 
-  main --no-create-pr -a sonnet --branch feat/direct-branch "fix stuff"
+  main --no-pr -a sonnet --branch feat/direct-branch "fix stuff"
 
   assert_called "--create feat/direct-branch" "worktree created without infer harness"
   assert_not_called "pi " "pi never called"
@@ -1036,7 +1036,7 @@ test_launch_agent_iterm2() {
     log_call "osascript" "$@"
   }
 
-  main --no-create-pr -a sonnet "iterm2 integration"
+  main --no-pr -a sonnet "iterm2 integration"
 
   assert_called "osascript" "osascript called for iTerm2 launch"
   assert_called "feat/iterm2-test" "correct branch"
@@ -1073,7 +1073,7 @@ test_infer_harness_opencode() {
 NDJSON
   }
 
-  main --no-create-pr -a sonnet "opencode harness test"
+  main --no-pr -a sonnet "opencode harness test"
 
   assert_called "opencode run" "opencode called for inference"
   assert_called "--format json" "opencode called with --format json"
@@ -1101,7 +1101,7 @@ test_iterm2_muxer_display() {
   }
 
   local output
-  output=$(main --no-create-pr -a sonnet "iterm2 display" 2>&1) || true
+  output=$(main --no-pr -a sonnet "iterm2 display" 2>&1) || true
 
   echo "$output" | grep -qF 'muxer:    iterm2' || fail "muxer displayed as iterm2 in output: $output"
 
