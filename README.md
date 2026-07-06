@@ -16,10 +16,15 @@ wt-spawn -p "#sonnet implement the plan in ~/.plans/refactor-auth.md"
 
 # or: no arguments will open a text editor
 wt-spawn
+
+# or:
+wt-spawn -p @prompt.txt   # via file
+echo "add dark mode" | wt-spawn -p -  # via stdin
 ```
 
 This will:
 
+- Come up with a branch name
 - Create a branch and worktree via *worktrunk*
 - Create an empty draft PR
 - Spawn Claude Code with the Sonnet model in your multiplexer (eg, cmux or Herdr)
@@ -49,13 +54,13 @@ Config location: `${XDG_CONFIG_HOME:-~/.config}/wt-spawn/config.sh`
 
 ## Prompt template
 
-Prompt templates are available via `-t/--template`.
+Prompt templates are available via `-t/--template` or via hashtags.
 
 ```sh
-wt-spawn -t "plan" -p "#plan fix issue #1234"
+wt-spawn -p "#plan fix issue XYZ-1234"
 # Expands to the prompt:
 #
-#    Create a plan. Details: fix issue #1234
+#    Create a plan. Details: fix issue XYZ-1234
 #
 ```
 
@@ -67,11 +72,10 @@ PROMPT_TEMPLATES[plan]='Create a plan. Details:'
 PROMPT_TEMPLATES[implement]='/goal Implement this plan as described, ensure PR title and description are accurate and sensible. Ultrathink. Plan:'
 ```
 
-Templates can also be loaded via hashtags:
+Templates can also be invoked via `-t/--template`:
 
 ```sh
-wt-spawn -p "#plan fix issue #1234"
-# same as: wt-spawn --template "plan" -p "fix issue #1234"
+wt-spawn -t "plan" -p "fix issue XYZ-1234"
 ```
 
 ## Agents
@@ -104,7 +108,7 @@ AGENTS[gpt-5.4]="codex --sandbox workspace-write --ask-for-approval never --mode
 AGENTS[gpt-5.5]="codex --sandbox workspace-write --ask-for-approval never --model gpt-5.5"
 ```
 
-## Inference harness
+## Auto branch naming
 
 Branch/workspace name inference runs through a small, cheap model call. Configure which CLI it uses:
 
