@@ -219,8 +219,8 @@ EOF
   cat <<'EOF'
 
 EXAMPLES:
-  wt-spawn -a sonnet fix bug
-  wt-spawn -a sonnet -t plan add redis caching
+  wt-spawn -a sonnet "fix bug"
+  wt-spawn -a sonnet -t plan "add redis caching"
   wt-spawn -a sonnet @prompt.txt
   wt-spawn -a sonnet - < prompt.txt
   wt-spawn "#sonnet #plan fix issue #1234"
