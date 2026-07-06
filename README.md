@@ -20,6 +20,9 @@ wt-spawn
 # or:
 wt-spawn @prompt.txt         # via file
 echo "add dark mode" | wt-spawn -  # via stdin
+
+# skip LLM branch inference with --branch
+wt-spawn -a sonnet --branch feat/add-dark-mode "add dark mode"
 ```
 
 This will:
@@ -118,5 +121,26 @@ Branch/workspace name inference runs through a small, cheap model call. Configur
 ```sh
 INFER_HARNESS=claude   # or "pi" (default: claude)
 INFER_MODEL=           # empty = auto-pick (haiku for claude, openai-codex/gpt-5.4-mini for pi)
+```
+
+## Branch name override
+
+Use `--branch NAME` (or `-b`) to bypass LLM inference and set the branch name directly.
+The workspace display name is derived automatically from the branch.
+
+```sh
+wt-spawn -a sonnet --branch feat/add-redis "add redis caching"
+# branch = feat/add-redis, workspace name = Add redis
+```
+
+**Breaking change:** `-b` was previously a short flag for `--base`. It is now `--branch`.
+Use the long `--base` to set the base branch.
+
+```sh
+# Old (broken)
+wt-spawn -a sonnet -b main "fix bug"
+
+# New
+wt-spawn -a sonnet --base main --branch feat/fix-bug "fix bug"
 ```
 

@@ -188,13 +188,14 @@ sorted_agents() {
 # Print usage text and available agents
 show_help() {
   cat <<EOF
-Usage: wt-spawn [-a <agent>] [-t <template>] [-b <branch>] [prompt...]
+Usage: wt-spawn [-a <agent>] [-t <template>] [-b <branch>] [--base <branch>] [prompt...]
 
 Starts an agent in a new git worktree. Opens \$EDITOR to draft task when
 no prompt is given.
 
 OPTIONS:
-  -b, --base <branch>     Base branch (passed to wt switch and gh pr create)
+  -b, --branch <name>     Branch name (skips LLM inference)
+      --base <branch>      Base branch (passed to wt switch and gh pr create)
   -a, --agent <agent>     Agent to use (required, or use #agent-name tag)
   -t, --template <name>   Prompt template: plan, implement
   --create-pr             Create a draft PR after worktree creation
@@ -391,6 +392,23 @@ ask_infer_model() {
   esac
 }
 
+# Derive workspace display name from branch name
+# e.g. feat/add-redis-cache → Add redis cache, fix-bug → Fix bug
+derive_workspace_name() {
+  local branch="$1"
+  # Strip prefix up to first /
+  local name="${branch#*/}"
+  [[ "$name" == "$branch" ]] && name="$branch"
+  # Dashes and underscores → spaces
+  name="${name//-/ }"
+  name="${name//_/ }"
+  # Sentence case: lowercase all, then capitalize first letter
+  local lower
+  lower="$(tr '[:upper:]' '[:lower:]' <<< "$name")"
+  name="$(tr '[:lower:]' '[:upper:]' <<< "${lower:0:1}")${lower:1}"
+  printf '%s' "$name"
+}
+
 # Ask the configured harness to infer branch name and workspace label in
 # one call, parse JSON, retry up to 3 times on failure
 infer_branch_and_name() {
@@ -505,7 +523,7 @@ launch_agent() {
 
 # Entry point: parse args, resolve description, infer branch, create worktree, launch
 main() {
-  local agent="" template="" create_pr="" base=""
+  local agent="" template="" create_pr="" base="" branch=""
   local positional_args=()
 
   while [[ $# -gt 0 ]]; do
@@ -516,7 +534,13 @@ main() {
         exit 2
       fi
       agent="$2"; shift 2 ;;
-    -b | --base)
+    -b | --branch)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: $1 requires an argument" >&2
+        exit 2
+      fi
+      branch="$2"; shift 2 ;;
+    --base)
       if [[ $# -lt 2 ]]; then
         echo "Error: $1 requires an argument" >&2
         exit 2
@@ -608,9 +632,19 @@ $description"
     exit 1
   fi
 
-  # Infer branch and workspace name (single LLM call)
-  local branch ws_name
-  IFS=$'\t' read -r branch ws_name < <(infer_branch_and_name "$description") || exit 1
+  # Resolve branch and workspace name
+  local ws_name
+  if [[ -n "${branch:-}" ]]; then
+    # --branch given: skip LLM inference, validate, derive display name
+    if ! git check-ref-format --branch "$branch" >/dev/null 2>&1; then
+      echo "Error: invalid branch name '$branch'" >&2
+      exit 1
+    fi
+    ws_name=$(derive_workspace_name "$branch")
+  else
+    # Infer branch and workspace name (single LLM call)
+    IFS=$'\t' read -r branch ws_name < <(infer_branch_and_name "$description") || exit 1
+  fi
 
   # Build execute_cmd
   local -a execute_cmd
