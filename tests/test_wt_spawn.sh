@@ -749,6 +749,140 @@ test_positional_file() {
   rm -f "$promptfile"
 }
 
+test_branch_flag_skips_inference() {
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+
+  # pi() must NOT be called when --branch is used
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "ignored", "name": "Ignored"}'
+  }
+
+  herdr() {
+    log_call "herdr" "$@"
+    if [[ "$*" == *"workspace create"* ]]; then
+      echo '{"result":{"root_pane":{"pane_id":"pane-99"}}}'
+    fi
+  }
+
+  main --no-create-pr -a sonnet --branch feat/my-fix "fix stuff"
+
+  assert_not_called "pi " "pi inference skipped when --branch used"
+  assert_called "--create feat/my-fix" "worktree created on given branch"
+  assert_called "--label My fix" "workspace name derived from branch"
+}
+
+test_branch_name_derivation() {
+  assertEquals "Add redis cache" "$(derive_workspace_name "feat/add-redis-cache")"
+  assertEquals "Fix bug" "$(derive_workspace_name "fix-bug")"
+  assertEquals "Update deps" "$(derive_workspace_name "chore/update-deps")"
+  assertEquals "My fix" "$(derive_workspace_name "feat/my-fix")"
+  assertEquals "Test" "$(derive_workspace_name "test")"
+  assertEquals "Some branch" "$(derive_workspace_name "feature/some_branch")"
+  assertEquals "Abc" "$(derive_workspace_name "ABC")"
+  # Collapse consecutive separators
+  assertEquals "My fix" "$(derive_workspace_name "feat/my--fix")"
+  assertEquals "Foo" "$(derive_workspace_name "feat/_foo")"
+}
+
+test_branch_short_flag() {
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "ignored", "name": "Ignored"}'
+  }
+
+  herdr() {
+    log_call "herdr" "$@"
+    if [[ "$*" == *"workspace create"* ]]; then
+      echo '{"result":{"root_pane":{"pane_id":"pane-99"}}}'
+    fi
+  }
+
+  main --no-create-pr -a sonnet -b feat/short-flag "fix stuff"
+
+  assert_not_called "pi " "pi inference skipped with -b"
+  assert_called "--create feat/short-flag" "worktree created via -b"
+}
+
+test_base_long_flag_only() {
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/some-fix", "name": "Some fix"}'
+  }
+
+  herdr() {
+    log_call "herdr" "$@"
+    if [[ "$*" == *"workspace create"* ]]; then
+      echo '{"result":{"root_pane":{"pane_id":"pane-99"}}}'
+    fi
+  }
+
+  main --no-create-pr -a sonnet --base main "fix stuff"
+
+  assert_called "--base main" "--base flag passed to wt"
+  assert_called "pi " "pi still called for inference"
+}
+
+test_branch_rejects_invalid() {
+  # Override git to reject "has space" as invalid branch name; succeed for everything else
+  git() {
+    log_call "git" "$@"
+    if [[ "$*" == *"check-ref-format"* ]] && [[ "$*" == *"has space"* ]]; then
+      return 1
+    fi
+    return 0
+  }
+
+  local output status
+  output=$(main --no-create-pr -a sonnet --branch "has space" "fix stuff" 2>&1) && status=$? || status=$?
+
+  assertEquals "main exits non-zero on invalid branch" 1 "$status"
+  echo "$output" | grep -qi 'invalid branch' || fail "error message should mention invalid branch"
+}
+
+test_branch_skips_harness_check() {
+  # --branch should not require INFER_HARNESS to be installed
+  INFER_HARNESS=bogus
+  INFER_MODEL=""
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+
+  herdr() {
+    log_call "herdr" "$@"
+    if [[ "$*" == *"workspace create"* ]]; then
+      echo '{"result":{"root_pane":{"pane_id":"pane-99"}}}'
+    fi
+  }
+
+  main --no-create-pr -a sonnet --branch feat/direct-branch "fix stuff"
+
+  assert_called "--create feat/direct-branch" "worktree created without infer harness"
+  assert_not_called "pi " "pi never called"
+  assert_not_called "claude " "claude never called"
+}
+
 test_help_omits_p_flag() {
   local output
   output=$(show_help)
@@ -757,6 +891,12 @@ test_help_omits_p_flag() {
   ! grep -q -- '-p, --prompt' <<<"$output" || fail "show_help must not list -p flag"
   # But an agent description like 'opencode --auto --prompt' may mention --prompt
   # legitimately — only the flag definition line should not exist.
+
+  # New flags present
+  grep -q -- '-b, --branch' <<<"$output" || fail "show_help must list -b/--branch"
+  grep -q -- '--base' <<<"$output" || fail "show_help must list --base (long only)"
+  # --base must NOT have a short flag
+  ! grep -q -- '-b, --base' <<<"$output" || fail "show_help must not list -b as --base short flag"
 }
 
 # --- iTerm2 tests ---
