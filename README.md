@@ -27,7 +27,7 @@ This will:
 - Come up with a branch name
 - Create a branch and worktree via *worktrunk*
 - Create an empty draft PR
-- Spawn Claude Code with the Sonnet model in your multiplexer (eg, cmux or Herdr)
+- Spawn Claude Code with the Sonnet model in your multiplexer (eg, cmux, Herdr, Zellij, Tmux)
 
 ## Multiplexers
 
@@ -36,6 +36,7 @@ wt-spawn automatically creates workspaces using the multiplexer being used. No c
 - [Herdr](https://herdr.dev/)
 - [cmux](https://github.com/craigsc/cmux)
 - [Zellij](https://zellij.dev/) (0.44+)
+- [iTerm2](https://iterm2.com/)
 - [tmux](https://github.com/tmux/tmux)
 
 ## Configuration

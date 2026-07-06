@@ -759,6 +759,123 @@ test_help_omits_p_flag() {
   # legitimately — only the flag definition line should not exist.
 }
 
+# --- iTerm2 tests ---
+
+test_is_using_iterm2_detects_TERM_PROGRAM() {
+  TERM_PROGRAM="iTerm.app"
+  assertTrue "is_using_iterm2 returns true" "is_using_iterm2"
+  unset TERM_PROGRAM
+}
+
+test_is_using_iterm2_negative() {
+  unset TERM_PROGRAM
+  assertFalse "is_using_iterm2 returns false when unset" "is_using_iterm2"
+  TERM_PROGRAM="Terminal.app"
+  assertFalse "is_using_iterm2 returns false for other terminal" "is_using_iterm2"
+  unset TERM_PROGRAM
+}
+
+test_get_muxer_type_iterm2() {
+  # Simulate iTerm2 environment: TERM_PROGRAM set, no cmux/herdr/zellij
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT ZELLIJ TMUX
+  export TERM_PROGRAM="iTerm.app"
+  assertEquals "iterm2" "$(get_muxer_type)"
+  unset TERM_PROGRAM
+}
+
+test_get_muxer_type_iterm2_lower_priority_than_muxers() {
+  # iterm2 should lose to cmux
+  export CMUX_WORKSPACE_ID=test
+  export TERM_PROGRAM="iTerm.app"
+  assertEquals "cmux" "$(get_muxer_type)"
+  unset CMUX_WORKSPACE_ID TERM_PROGRAM
+}
+
+test_iterm2_create_workspace() {
+  local fake_wt="/tmp/wt-test-workspace" fake_cmdfile="/tmp/wt-cmd-ABCDEF"
+
+  # Mock osascript: log args
+  osascript() {
+    log_call "osascript" "$@"
+  }
+
+  iterm2_create_workspace "$fake_wt" "Test Name" "$fake_cmdfile"
+
+  assert_called "osascript" "osascript was called"
+  # Paths and display name are passed as osascript argv
+  assert_called "$fake_wt" "worktree_path passed to osascript"
+  assert_called "Test Name" "display_name passed to osascript"
+  assert_called "$fake_cmdfile" "cmdfile passed to osascript"
+}
+
+test_launch_agent_iterm2() {
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT ZELLIJ TMUX
+  export TERM_PROGRAM="iTerm.app"
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/iterm2-test", "name": "iTerm2 Test"}'
+  }
+
+  osascript() {
+    log_call "osascript" "$@"
+  }
+
+  main --no-create-pr -a sonnet "iterm2 integration"
+
+  assert_called "osascript" "osascript called for iTerm2 launch"
+  assert_called "feat/iterm2-test" "correct branch"
+  assert_not_called "herdr " "herdr not called"
+  assert_not_called "cmux " "cmux not called"
+  assert_not_called "zellij " "zellij not called"
+
+  unset TERM_PROGRAM
+}
+
+test_tmux_priority_over_iterm2() {
+  # tmux inside iTerm2: tmux should win
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT ZELLIJ
+  export TERM_PROGRAM="iTerm.app"
+  export TMUX="/tmp/tmux-1000/default,1234,0"
+
+  assertEquals "tmux" "$(get_muxer_type)"
+
+  unset TERM_PROGRAM TMUX
+}
+
+test_iterm2_muxer_display() {
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT ZELLIJ TMUX
+  export TERM_PROGRAM="iTerm.app"
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/iterm2-disp", "name": "iTerm2 Display"}'
+  }
+
+  osascript() {
+    log_call "osascript" "$@"
+  }
+
+  local output
+  output=$(main --no-create-pr -a sonnet "iterm2 display" 2>&1) || true
+
+  echo "$output" | grep -qF 'muxer:    iterm2' || fail "muxer displayed as iterm2 in output: $output"
+
+  unset TERM_PROGRAM
+}
+
 # --- shunit2 bootstrap ---
 # shellcheck disable=SC1091
 source "$TEST_DIR/shunit2"
