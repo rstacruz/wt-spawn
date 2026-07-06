@@ -118,7 +118,8 @@ AGENTS[sonnet]='claude --model sonnet --dangerously-skip-permissions'
 Branch/workspace name inference runs through a small, cheap model call. Configure which CLI it uses:
 
 ```sh
-INFER_HARNESS=claude   # or "pi" (default: claude)
-INFER_MODEL=           # empty = auto-pick (haiku for claude, openai-codex/gpt-5.4-mini for pi)
+INFER_HARNESS=claude   # "pi", "claude", or "opencode" (default: claude)
+INFER_MODEL=           # empty = auto-pick per harness:
+                       #   claude → haiku, pi → openai-codex/gpt-5.4-mini, opencode → opencode/big-pickle
 ```
 

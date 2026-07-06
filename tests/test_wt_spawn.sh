@@ -13,7 +13,8 @@ log_call() { echo "$*" >> "$CALL_LOG"; }
 
 wt()     { log_call "wt" "$@"; }
 pi()     { log_call "pi" "$@"; }
-claude() { log_call "claude" "$@"; }
+claude()  { log_call "claude" "$@"; }
+opencode() { log_call "opencode" "$@"; }
 git()    { log_call "git" "$@"; }
 gh()     { log_call "gh" "$@"; }
 herdr()  { log_call "herdr" "$@"; }
@@ -471,11 +472,19 @@ test_resolve_infer_model_defaults() {
   INFER_MODEL=""
   assertEquals "openai-codex/gpt-5.4-mini" "$(resolve_infer_model)"
 
+  INFER_HARNESS=opencode
+  INFER_MODEL=""
+  assertEquals "opencode/big-pickle" "$(resolve_infer_model)"
+
   INFER_HARNESS=claude
   INFER_MODEL="custom-model"
   assertEquals "custom-model" "$(resolve_infer_model)"
 
   INFER_HARNESS=pi
+  INFER_MODEL="custom-model"
+  assertEquals "custom-model" "$(resolve_infer_model)"
+
+  INFER_HARNESS=opencode
   INFER_MODEL="custom-model"
   assertEquals "custom-model" "$(resolve_infer_model)"
 }
@@ -507,6 +516,9 @@ test_ensure_valid_infer_harness() {
 
   INFER_HARNESS=claude
   assertTrue "claude is valid" "ensure_valid_infer_harness"
+
+  INFER_HARNESS=opencode
+  assertTrue "opencode is valid" "ensure_valid_infer_harness"
 
   INFER_HARNESS=bogus
   local output status
@@ -847,6 +859,29 @@ test_tmux_priority_over_iterm2() {
   assertEquals "tmux" "$(get_muxer_type)"
 
   unset TERM_PROGRAM TMUX
+}
+
+test_infer_harness_opencode() {
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT ZELLIJ TMUX
+  INFER_HARNESS=opencode
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+  opencode() {
+    log_call "opencode" "$@"
+    cat <<'NDJSON'
+{"type":"text","part":{"type":"text","text":"{\"branch\": \"feat/opencode-test\", \"name\": \"Opencode Test\"}"}}
+NDJSON
+  }
+
+  main --no-create-pr -a sonnet "opencode harness test"
+
+  assert_called "opencode run" "opencode called for inference"
+  assert_called "--format json" "opencode called with --format json"
+  assert_called "feat/opencode-test" "branch inferred by opencode"
+  assert_not_called "pi -p" "pi not called for inference"
 }
 
 test_iterm2_muxer_display() {
