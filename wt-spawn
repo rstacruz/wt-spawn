@@ -1,0 +1,665 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ((BASH_VERSINFO[0] < 4)); then
+  echo "Error: wt-spawn requires bash 4+ (have ${BASH_VERSION})" >&2
+  exit 1
+fi
+
+# Create a new wt worktree with a task description (--prompt or $EDITOR),
+# inferring a branch name with pi, then launching wt switch --create.
+
+# Agent definitions — flags only, description appended at exec time.
+declare -A AGENTS=()
+AGENTS[pi]="pi"
+AGENTS[claude]="claude --dangerously-skip-permissions"
+AGENTS[sonnet]="claude --model sonnet --dangerously-skip-permissions"
+AGENTS[haiku]="claude --model haiku --dangerously-skip-permissions"
+AGENTS[opus]="claude --model opus --dangerously-skip-permissions"
+AGENTS[fable]="claude --model fable --dangerously-skip-permissions"
+AGENTS[codex]="codex --sandbox workspace-write --ask-for-approval never"
+AGENTS[gpt-5.4]="codex --sandbox workspace-write --ask-for-approval never --model gpt-5.4"
+AGENTS[gpt-5.5]="codex --sandbox workspace-write --ask-for-approval never --model gpt-5.5"
+
+# Prompt templates for -t/--template flag
+declare -A PROMPT_TEMPLATES=()
+PROMPT_TEMPLATES[plan]='Create a plan. Details:'
+PROMPT_TEMPLATES[implement]='/goal Implement this plan as described, ensure PR title and description are accurate and sensible. Ultrathink. Plan:'
+
+# Harness used for branch/workspace name inference: "pi" or "claude"
+INFER_HARNESS="claude"
+
+# Model for inference (fast/cheap is fine). Empty = auto-pick
+INFER_MODEL=""
+
+# Single prompt for inferring both branch name and workspace label (override in ~/.config/wt-spawn/config.sh)
+INFER_PROMPT='Output a JSON object with two fields inferred from this task:
+- "branch":
+  - branch name in format "feat/three-words-max".
+  - Include TICKET-ID (e.g. TICK-123) only if explicitly mentioned — do not infer ticket IDs.
+- "name":
+  - short workspace label for a terminal tab.
+  - Max 4 words, sentence case.
+  - Include TICKET-ID only if explicitly mentioned.
+
+Reply with ONLY a single valid JSON object. No markdown formatting, no backticks, no explanation, no other text.
+Avoid names like "plan", "brainstorm". What are we planning? Use that as context.
+
+Examples:
+{"branch": "feat/add-redis-caching", "name": "Add Redis caching"}
+{"branch": "feat/add-redis-caching-TICK-123", "name": "Add Redis caching · TICK-123"}
+
+<task>
+%PROMPT%
+</task>'
+
+# Auto draft PR on new worktrees (set 0 to disable)
+AUTO_CREATE_DRAFT_PR="${AUTO_CREATE_DRAFT_PR:-1}"
+
+# Message for the empty initial commit
+INITIAL_COMMIT_MESSAGE="${INITIAL_COMMIT_MESSAGE:-initial commit for branch}"
+
+# Remote to push to for draft PRs
+PR_REMOTE="${PR_REMOTE:-origin}"
+
+print_default_config() {
+  cat <<'HEADER'
+# wt-spawn configuration
+# See: https://github.com/rstacruz/wt-spawn
+
+HEADER
+
+  # --- Inference harness/model ---
+  printf '# Harness for branch/workspace name inference: "pi" or "claude"\n'
+  printf "INFER_HARNESS='%s'\n" "${INFER_HARNESS//\'/\'\\\'\'}"
+  printf '\n'
+  printf '# Model for inference (fast/cheap is fine). Empty = auto-pick from INFER_HARNESS.\n'
+  printf "INFER_MODEL='%s'\n" "${INFER_MODEL//\'/\'\\\'\'}"
+  printf '\n'
+
+  # --- INFER_PROMPT ---
+  printf '# Prompt for inferring branch and workspace name from task description\n'
+  printf "INFER_PROMPT='%s'\n" "${INFER_PROMPT//\'/\'\\\'\'}"
+  printf '\n'
+
+  # --- Agents ---
+  cat <<'AGENTS_HEADER'
+# Agent definitions — flags only, description appended at exec time.
+# Override or extend in config.sh. Use per-key assignment:
+#   AGENTS[sonnet]='claude --model sonnet --dangerously-skip-permissions'
+# Whole-array assignment replaces all keys — prefer per-key.
+AGENTS_HEADER
+  while IFS= read -r key; do
+    printf "AGENTS[%s]='%s'\n" "$key" "${AGENTS[$key]//\'/\'\\\'\'}"
+  done < <(printf '%s\n' "${!AGENTS[@]}" | sort)
+  printf '\n'
+
+  # --- Prompt templates ---
+  cat <<'TEMPLATES_HEADER'
+# Prompt templates for -t/--template flag
+# Override or extend with per-key assignment.
+# Whole-array assignment replaces all keys — prefer per-key.
+TEMPLATES_HEADER
+  while IFS= read -r key; do
+    printf "PROMPT_TEMPLATES[%s]='%s'\n" "$key" "${PROMPT_TEMPLATES[$key]//\'/\'\\\'\'}"
+  done < <(printf '%s\n' "${!PROMPT_TEMPLATES[@]}" | sort)
+  printf '\n'
+
+  # --- Other settings ---
+  printf '# Auto-create draft PR on new worktrees (set 0 to disable)\n'
+  printf "AUTO_CREATE_DRAFT_PR='%s'\n" "${AUTO_CREATE_DRAFT_PR//\'/\'\\\'\'}"
+  printf '\n'
+  printf '# Message for the empty initial commit\n'
+  printf "INITIAL_COMMIT_MESSAGE='%s'\n" "${INITIAL_COMMIT_MESSAGE//\'/\'\\\'\'}"
+  printf '\n'
+  printf '# Remote to push to for draft PRs\n'
+  printf "PR_REMOTE='%s'\n" "${PR_REMOTE//\'/\'\\\'\'}"
+}
+
+init_config() {
+  local config_path="${XDG_CONFIG_HOME:-$HOME/.config}/wt-spawn/config.sh"
+
+  if [[ -e "$config_path" ]]; then
+    echo "Error: config already exists at $config_path" >&2
+    echo "Remove it first or use --print-default-config to view defaults." >&2
+    return 1
+  fi
+
+  mkdir -p "$(dirname "$config_path")" || return 1
+  print_default_config > "$config_path" || return 1
+  echo "Config written to $config_path"
+}
+
+# Handle --print-default-config and --init early (before config sourcing, to use defaults)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  for __arg in "$@"; do
+    case "$__arg" in
+      --print-default-config)
+        print_default_config
+        exit 0
+        ;;
+      --init)
+        init_config || exit 1
+        exit 0
+        ;;
+    esac
+  done
+  unset __arg
+fi
+
+# Source user config (if exists). set +e prevents a failing command in config from aborting wt-spawn.
+config_file="${XDG_CONFIG_HOME:-$HOME/.config}/wt-spawn/config.sh"
+if [[ -z "${WT_SPAWN_NO_CONFIG:-}" ]] && [[ -f "$config_file" ]]; then
+  set +e
+  # shellcheck disable=SC1090
+  source "$config_file"
+  set -e
+fi
+unset config_file
+
+# --- Functions ---
+
+# Check if running inside cmux
+is_using_cmux() { [[ -n "${CMUX_WORKSPACE_ID:-}${CMUX_SURFACE_ID:-}${CMUX_PORT:-}" ]]; }
+
+# Check if running inside herdr
+is_using_herdr() { [[ -n "${HERDR_ENV:-}" ]]; }
+
+# Check if running inside zellij
+is_using_zellij() { [[ -n "${ZELLIJ:-}" ]]; }
+
+# Check if running inside tmux
+is_using_tmux() { [[ -n "${TMUX:-}" ]]; }
+
+# Return the workspace orchestrator (cmux/herdr), or "none"
+get_muxer_type() {
+  if is_using_cmux;   then echo "cmux";   return; fi
+  if is_using_herdr;  then echo "herdr";  return; fi
+  echo "none"
+}
+
+# Print agent names sorted alphabetically
+sorted_agents() {
+  printf '%s\n' "${!AGENTS[@]}" | sort
+}
+
+# Print usage text and available agents
+show_help() {
+  cat <<EOF
+Usage: wt-spawn [-a <agent>] [-t <template>] [-p <prompt>] [-b <branch>]
+
+Starts an agent in a new git worktree. Opens \$EDITOR to draft task when -p is omitted.
+Exits shortly after (~10 seconds) while the agent will be running in the background.
+
+OPTIONS:
+  -b, --base <branch>     Base branch (passed to wt switch and gh pr create)
+  -a, --agent <agent>     Agent to use (required, unless set via a #agent-name tag in prompt)
+  -t, --template <name>   Prompt template: plan, implement
+  -p, --prompt <text>     Task prompt (skips \$EDITOR). Use @file for file, - for stdin.
+  --create-pr             Create a draft PR after worktree creation
+  --no-create-pr          Skip draft PR creation
+  --print-default-config  Print current defaults as shell config to stdout
+  --init                  Write config to ~/.config/wt-spawn/config.sh (refuses if exists)
+  -h, --help              Show this help message and exit
+
+AVAILABLE AGENTS:
+EOF
+  while IFS= read -r name; do
+    printf "  %-12s # %s\n" "$name" "${AGENTS[$name]}"
+  done < <(sorted_agents)
+
+  cat <<'EOF'
+
+AVAILABLE TEMPLATES:
+EOF
+  while IFS= read -r name; do
+    printf '  %s\n' "$name"
+  done < <(printf '%s\n' "${!PROMPT_TEMPLATES[@]}" | sort)
+
+  cat <<'EOF'
+
+EXAMPLES:
+  wt-spawn -a sonnet -t plan -p "add redis caching"
+  wt-spawn -a sonnet -p @prompt.txt
+  wt-spawn -a sonnet -p - < prompt.txt
+  wt-spawn -p "#plan #sonnet add redis caching"
+
+HASHTAGS:
+  Agents and templates can be passed as hashtags:
+
+  wt-spawn -p "#sonnet #plan fix issue #1234"
+  # same as -a sonnet -t plan
+EOF
+}
+
+# Set terminal window title (cmux > herdr > zellij > tmux > raw escape)
+rename_current_window() {
+  local title="$1"
+
+  if is_using_cmux; then
+    cmux rename-window "$title" >/dev/null 2>&1 && return 0
+  fi
+
+  if is_using_herdr && [[ -n "${HERDR_WORKSPACE_ID:-}" ]]; then
+    herdr workspace rename "$HERDR_WORKSPACE_ID" "$title" >/dev/null 2>&1 && return 0
+  fi
+
+  if is_using_zellij; then
+    zellij action rename-tab "$title" >/dev/null 2>&1 && return 0
+  fi
+
+  if is_using_tmux; then
+    tmux rename-window "$title" >/dev/null 2>&1 && return 0
+  fi
+
+  if [[ -t 1 ]]; then
+    printf '\033]2;%s\007' "$title"
+  fi
+}
+
+# Resolve --prompt arg: @file reads file, - reads stdin, else inline text
+resolve_description() {
+  local prompt_value="$1"
+
+  case "$prompt_value" in
+    @*)
+      local prompt_file="${prompt_value:1}"
+      if [[ ! -f "$prompt_file" || ! -r "$prompt_file" ]]; then
+        echo "Error: file not readable: $prompt_file" >&2
+        return 1
+      fi
+      cat "$prompt_file"
+      ;;
+    -)
+      if [[ -t 0 ]]; then
+        echo "Error: --prompt - requires piped input (stdin is a TTY)" >&2
+        return 1
+      fi
+      cat
+      ;;
+    *)
+      printf '%s' "$prompt_value"
+      ;;
+  esac
+}
+
+# Open $EDITOR with optional prompt template, write result to tmpfile (caller owns tmpfile)
+resolve_description_editor() {
+  local tmpfile="$1" template_text="${2:-}"
+  if [[ -n "$template_text" ]]; then
+    printf '%s\n' "$template_text" > "$tmpfile"
+  else
+    : > "$tmpfile"  # truncate — no stray newline that would defeat ! -s
+  fi
+  "${EDITOR:-vim}" "$tmpfile"
+
+  if [[ ! -s "$tmpfile" ]]; then
+    echo "No description provided, aborting." >&2
+    return 1
+  fi
+}
+
+# Strip leading #agent/#template tags from $1. Sets PROMPT_TAG_AGENT,
+# PROMPT_TAG_TEMPLATE, PROMPT_TAG_REST. Last tag of each kind wins; an
+# unrecognized tag stops parsing and is left in place.
+parse_hashtags() {
+  local rest="$1" tag body
+  PROMPT_TAG_AGENT=""
+  PROMPT_TAG_TEMPLATE=""
+  while [[ "$rest" == '#'* ]]; do
+    [[ "$rest" =~ ^#([A-Za-z0-9_.-]+)[[:space:]]*(.*)$ ]] || break
+    tag="${BASH_REMATCH[1]}"
+    body="${BASH_REMATCH[2]}"
+    if [[ -n "${AGENTS[$tag]+_}" ]]; then
+      PROMPT_TAG_AGENT="$tag"
+    elif [[ -n "${PROMPT_TEMPLATES[$tag]+_}" ]]; then
+      PROMPT_TAG_TEMPLATE="$tag"
+    else
+      break
+    fi
+    rest="$body"
+  done
+  PROMPT_TAG_REST="$rest"
+}
+
+# Resolve the effective inference model from INFER_MODEL and INFER_HARNESS
+resolve_infer_model() {
+  case "$INFER_HARNESS" in
+    pi|claude) ;;
+    *)
+      echo "Error: unknown INFER_HARNESS '$INFER_HARNESS' (expected 'pi' or 'claude')" >&2
+      return 1
+      ;;
+  esac
+
+  if [[ -n "$INFER_MODEL" ]]; then
+    echo "$INFER_MODEL"
+    return
+  fi
+  case "$INFER_HARNESS" in
+    claude) echo "haiku" ;;
+    pi)     echo "openai-codex/gpt-5.4-mini" ;;
+  esac
+}
+
+# Validate INFER_HARNESS and that its CLI is installed; prints an error and
+# returns 1 if invalid or missing.
+ensure_valid_infer_harness() {
+  case "$INFER_HARNESS" in
+    pi|claude) ;;
+    *)
+      echo "Error: unknown INFER_HARNESS '$INFER_HARNESS' (expected 'pi' or 'claude')" >&2
+      return 1
+      ;;
+  esac
+  if ! command -v "$INFER_HARNESS" >/dev/null 2>&1; then
+    echo "Error: INFER_HARNESS='$INFER_HARNESS' but '$INFER_HARNESS' is not installed (not found in PATH)" >&2
+    return 1
+  fi
+}
+
+# Call the configured harness with a prompt. Uses INFER_HARNESS/INFER_MODEL.
+ask_infer_model() {
+  local prompt="$1" model
+  model=$(resolve_infer_model) || return 1
+  case "$INFER_HARNESS" in
+    pi)
+      pi -p \
+        --no-session \
+        --no-extensions \
+        --no-prompt-templates \
+        --no-skills \
+        --no-tools \
+        --no-context-files \
+        --thinking off \
+        --mode text \
+        --model "$model" \
+        "$prompt"
+      ;;
+    claude)
+      CLAUDECODE= MAX_THINKING_TOKENS=0 claude -p \
+        --model "$model" \
+        --no-session-persistence \
+        --tools "" \
+        --disable-slash-commands \
+        --setting-sources "" \
+        --system-prompt "" \
+        "$prompt" < /dev/null
+      ;;
+  esac
+}
+
+# Ask the configured harness to infer branch name and workspace label in
+# one call, parse JSON, retry up to 3 times on failure
+infer_branch_and_name() {
+  local description="$1"
+  # Escape chars that bash pattern substitution treats specially: \ & /
+  local escaped_desc="${description//\\/\\\\}"
+  escaped_desc="${escaped_desc//&/\\&}"
+  escaped_desc="${escaped_desc//\//\\\/}"
+  local prompt="${INFER_PROMPT//%PROMPT%/$escaped_desc}"
+  local raw branch name attempt
+
+  for attempt in 1 2 3 4; do
+    raw=$(ask_infer_model "$prompt" || true)
+    # Strip markdown code fences (```json ... ``` or ``` ... ```) some models wrap JSON in
+    local stripped="$raw"
+    stripped="${stripped#\`\`\`json}"
+    stripped="${stripped#\`\`\`}"
+    stripped="${stripped%\`\`\`}"
+
+    IFS=$'\t' read -r branch name < <(jq -r '[.branch // "", .name // ""] | @tsv' <<<"$stripped" 2>/dev/null) || true
+    branch="${branch//$'\n'/}"
+    name="${name//$'\n'/}"
+
+    # Validate branch is sane (rejects spaces/junk, accepts any prefix)
+    [[ "$branch" =~ ^[a-zA-Z0-9][a-zA-Z0-9._/-]*$ ]] || branch=""
+    # Also validate against Git's actual branch naming rules
+    if [[ -n "$branch" ]] && ! git check-ref-format --branch "$branch" >/dev/null 2>&1; then
+      branch=""
+    fi
+
+    [[ -n "$branch" ]] && break
+    [[ $attempt -lt 2 ]] && echo "! Attempt $attempt failed, retrying..." >&2
+  done
+
+  if [[ -z "$branch" ]]; then
+    echo "! Failed to infer branch/name from model output (raw: '$raw')" >&2
+    return 1
+  fi
+
+  # Output TSV to stdout — caller reads via IFS=$'\t' read
+  printf '%s\t%s\n' "$branch" "${name:-$branch}"
+}
+
+# Create git worktree via wt, return its path
+create_worktree() {
+  local branch="$1" base="${2:-}"
+  local -a base_arg=()
+  if [[ -n "$base" ]]; then
+    base_arg=(--base "$base")
+  fi
+  wt switch --create "$branch" "${base_arg[@]}" --format json | jq -r .path
+}
+
+# Write execute_cmd array to a temp file, return the file path
+write_cmdfile() {
+  local -n _cmd=$1
+  local cmdfile
+  cmdfile=$(mktemp "${TMPDIR:-/tmp}/wt-cmd-XXXXXX")
+  printf '%q ' "${_cmd[@]}" > "$cmdfile"
+  printf '%s' "$cmdfile"
+}
+
+# Create cmux workspace and run the agent command in it
+cmux_create_workspace() {
+  local worktree_path="$1" branch="$2" cmdfile="$3"
+  cmux workspace create \
+    --cwd "$worktree_path" \
+    --name "$branch" \
+    --command "bash $cmdfile; rm -f $cmdfile"
+}
+
+# Create herdr workspace and run the agent command in its root pane
+herdr_create_workspace() {
+  local worktree_path="$1" branch="$2" cmdfile="$3"
+  local ws_json pane_id
+  ws_json=$(herdr workspace create --cwd "$worktree_path" --label "$branch" --no-focus)
+  pane_id=$(echo "$ws_json" | jq -r '.result.root_pane.pane_id')
+  herdr pane run "$pane_id" "bash $cmdfile; rm -f $cmdfile"
+}
+
+# Dispatch agent launch: cmux, herdr, or direct exec in worktree
+launch_agent() {
+  local display_name="$1" branch="$2" worktree_path="$3"
+  shift 3
+  local -a execute_cmd=("$@")
+
+  if is_using_cmux; then
+    local cmdfile
+    cmdfile=$(write_cmdfile execute_cmd)
+    cmux_create_workspace "$worktree_path" "$display_name" "$cmdfile"
+  elif is_using_herdr; then
+    local cmdfile
+    cmdfile=$(write_cmdfile execute_cmd)
+    herdr_create_workspace "$worktree_path" "$display_name" "$cmdfile"
+  else
+    rename_current_window "$display_name"
+    cd "$worktree_path"
+    "${execute_cmd[@]}"
+  fi
+}
+
+# Entry point: parse args, resolve description, infer branch, create worktree, launch
+main() {
+  local agent="" prompt_value="" prompt_set=0 template="" create_pr="" base=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+    -a | --agent)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: $1 requires an argument" >&2
+        exit 2
+      fi
+      agent="$2"; shift 2 ;;
+    -p | --prompt)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: $1 requires an argument" >&2
+        exit 2
+      fi
+      prompt_value="$2"; prompt_set=1; shift 2 ;;
+    -b | --base)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: $1 requires an argument" >&2
+        exit 2
+      fi
+      base="$2"; shift 2 ;;
+    -t | --template)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: $1 requires an argument" >&2
+        exit 2
+      fi
+      template="$2"; shift 2 ;;
+    --create-pr)   create_pr=1; shift ;;
+    --no-create-pr) create_pr=0; shift ;;
+    -h | --help) show_help; exit 0 ;;
+    *)
+      echo "Unknown option: $1" >&2
+      echo "Use --help for usage information." >&2
+      exit 2
+      ;;
+    esac
+  done
+
+  # Validate explicit flag values only — "agent required" is checked below,
+  # after #tag parsing, since a #agent-name tag can satisfy it instead.
+  if [[ -n "$agent" ]] && [[ -z "${AGENTS[$agent]+_}" ]]; then
+    echo "Error: unknown agent '$agent'" >&2
+    echo "Available agents:" >&2
+    while IFS= read -r name; do echo "  $name" >&2; done < <(sorted_agents)
+    exit 2
+  fi
+
+  if [[ -n "$template" ]] && [[ -z "${PROMPT_TEMPLATES[$template]+_}" ]]; then
+    echo "Error: unknown template '$template'" >&2
+    echo "Available templates:" >&2
+    while IFS= read -r name; do echo "  $name" >&2; done < <(printf '%s\n' "${!PROMPT_TEMPLATES[@]}" | sort)
+    exit 2
+  fi
+
+  ensure_valid_infer_harness || exit 2
+
+  # Resolve raw description text (from -p, or from $EDITOR)
+  local template_text=""
+  if [[ -n "$template" ]]; then
+    template_text="${PROMPT_TEMPLATES[$template]}"
+  fi
+
+  local raw_description was_prefilled=0
+  if (( prompt_set )); then
+    raw_description=$(resolve_description "$prompt_value")
+  else
+    local tmpdir="${TMPDIR:-/tmp}"
+    local tmpfile
+    tmpfile=$(mktemp "$tmpdir/wt.XXXXXX")
+    trap "rm -f '$tmpfile'" EXIT
+    resolve_description_editor "$tmpfile" "$template_text"
+    [[ -n "$template_text" ]] && was_prefilled=1
+    raw_description=$(cat "$tmpfile")
+  fi
+
+  # Resolve leading #tags: an explicit -a/-t flag always wins over a tag,
+  # but the tag is stripped from the text either way.
+  parse_hashtags "$raw_description"
+  agent="${agent:-$PROMPT_TAG_AGENT}"
+  template="${template:-$PROMPT_TAG_TEMPLATE}"
+
+  if [[ -z "$agent" ]]; then
+    echo "Error: -a/--agent is required (or use a #agent-name tag in the prompt)." >&2
+    echo "Available agents:" >&2
+    while IFS= read -r name; do echo "  $name" >&2; done < <(sorted_agents)
+    exit 2
+  fi
+
+  # Assemble final description: prepend template text, unless it was
+  # already baked into $raw_description via $EDITOR pre-fill above.
+  local description="$PROMPT_TAG_REST"
+  if [[ -n "$template" ]] && (( ! was_prefilled )); then
+    description="${PROMPT_TEMPLATES[$template]}
+
+$description"
+  fi
+
+  if [[ -z "${description//[$' \t\n']}" ]]; then
+    echo "Error: empty prompt" >&2
+    exit 1
+  fi
+
+  # Infer branch and workspace name (single LLM call)
+  local branch ws_name
+  IFS=$'\t' read -r branch ws_name < <(infer_branch_and_name "$description") || exit 1
+
+  # Build execute_cmd
+  local -a execute_cmd
+  IFS=' ' read -r -a execute_cmd <<< "${AGENTS[$agent]}"
+  execute_cmd+=("$description")
+
+  # Determine whether to create draft PR
+  local should_create_pr="${create_pr:-$AUTO_CREATE_DRAFT_PR}"
+  local pr_title="" pr_body=""
+  if [[ "$should_create_pr" == "1" ]]; then
+    pr_title="${ws_name:-$branch}"
+    pr_body=""
+  fi
+
+  # Create worktree
+  echo "" >&2
+  echo "=== Creating worktree..." >&2
+  local worktree_path
+  worktree_path=$(create_worktree "$branch" "${base:-}")
+
+  # Create draft PR if enabled (never blocks agent launch)
+  if [[ "$should_create_pr" == "1" ]]; then
+    echo "" >&2
+    echo "=== Creating draft PR..." >&2
+    (
+      cd "$worktree_path" || exit 1
+      GIT_TERMINAL_PROMPT=0 git -c commit.gpgsign=false commit --allow-empty -m "$INITIAL_COMMIT_MESSAGE" > /dev/null 2>&1 || true
+      GIT_TERMINAL_PROMPT=0 git push -u "$PR_REMOTE" "$branch" > /dev/null 2>&1 || true
+      local -a gh_base=()
+      if [[ -n "${base:-}" ]]; then
+        gh_base=(--base "$base")
+      fi
+      GH_PROMPT_DISABLED=1 gh pr create --draft --title "$pr_title" --body "$pr_body" "${gh_base[@]}" 2>/dev/null || true
+    ) || true
+  fi
+
+  # --- confirmation ---
+  local display_path="$worktree_path"
+  if [[ -n "${HOME:-}" ]]; then
+    if [[ "$worktree_path" == "$HOME" ]]; then
+      display_path="~"
+    elif [[ "$worktree_path" == "$HOME/"* ]]; then
+      display_path="~/${worktree_path#$HOME/}"
+    fi
+  fi
+  local muxer
+  muxer=$(get_muxer_type)
+
+  {
+    echo ""
+    echo "✓ Launching agent"
+    echo "  command:  ${AGENTS[$agent]}"
+    echo "  muxer:    ${muxer}"
+    echo "  name:     ${ws_name:-$branch}"
+    echo "  branch:   ${branch}"
+    echo "  path:     ${display_path}"
+    echo ""
+  } >&2
+
+  launch_agent "${ws_name:-$branch}" "$branch" "$worktree_path" "${execute_cmd[@]}"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
