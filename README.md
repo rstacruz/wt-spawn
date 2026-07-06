@@ -14,20 +14,43 @@ Use wt-spawn to start a new piece of work. Pass a prompt with a supported [agent
 ```sh
 wt-spawn "#sonnet implement the plan in ~/.plans/refactor-auth.md"
 
-# or: no arguments opens a text editor
-wt-spawn
-
 # or:
-wt-spawn @prompt.txt         # via file
+wt-spawn                           # open text editor
+wt-spawn @prompt.txt               # via file
 echo "add dark mode" | wt-spawn -  # via stdin
 ```
 
 This will:
 
-- Come up with a branch name
+- Come up with a branch name [automatically](#auto-branch-naming)
 - Create a branch and worktree via *worktrunk*
 - Create an empty draft PR
 - Spawn Claude Code with the Sonnet model in your multiplexer (eg, cmux, Herdr, Zellij, Tmux)
+
+## Practical use cases
+
+One shotting trivial work. For simple changes, it should be as easy as possible to open a new PR.
+
+```sh
+wt-spawn "#sonnet fix test failure in path/to/my.test.ts"
+wt-spawn "#sonnet change spelling from American to British English in src/components/Onboarding/"
+```
+
+Agentic orchestration. Ask your coding agent to use wt-spawn directly.
+
+```
+Read 'wt-spawn --help' for context.
+Spawn 3 #opus agents for: create DB migration, update docs, and UI stub implementstion.
+```
+
+Implementing plans. Keep one Claude session for planning, then spin off implementation via wt-spawn.
+
+```
+/plan add rate limiting to /videos API
+# ...many turns later...
+
+approved. run wt-spawn "#sonnet #implement <plan file>"
+```
 
 ## Multiplexers
 
