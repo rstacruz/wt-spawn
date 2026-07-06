@@ -189,7 +189,7 @@ sorted_agents() {
 # Print usage text and available agents
 show_help() {
   cat <<EOF
-Usage: wt-spawn [-a <agent>] [-t <template>] [-b <branch>] [--base <branch>] [prompt...]
+Usage: wt-spawn [-a <agent>] [-t <template>] [-b <name>] [--base <branch>] [prompt...]
 
 Starts an agent in a new git worktree. Opens \$EDITOR to draft task when
 no prompt is given.
@@ -594,9 +594,7 @@ main() {
     exit 2
   fi
 
-  ensure_valid_infer_harness || exit 2
-
-  # Resolve raw description text (from -p, or from $EDITOR)
+  # Resolve raw description text
   local template_text=""
   if [[ -n "$template" ]]; then
     template_text="${PROMPT_TEMPLATES[$template]}"
@@ -659,6 +657,7 @@ $description"
     ws_name=$(derive_workspace_name "$branch")
   else
     # Infer branch and workspace name (single LLM call)
+    ensure_valid_infer_harness || exit 2
     IFS=$'\t' read -r branch ws_name < <(infer_branch_and_name "$description") || exit 1
   fi
 

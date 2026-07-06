@@ -859,6 +859,30 @@ test_branch_rejects_invalid() {
   echo "$output" | grep -qi 'invalid branch' || fail "error message should mention invalid branch"
 }
 
+test_branch_skips_harness_check() {
+  # --branch should not require INFER_HARNESS to be installed
+  INFER_HARNESS=bogus
+  INFER_MODEL=""
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+
+  herdr() {
+    log_call "herdr" "$@"
+    if [[ "$*" == *"workspace create"* ]]; then
+      echo '{"result":{"root_pane":{"pane_id":"pane-99"}}}'
+    fi
+  }
+
+  main --no-create-pr -a sonnet --branch feat/direct-branch "fix stuff"
+
+  assert_called "--create feat/direct-branch" "worktree created without infer harness"
+  assert_not_called "pi " "pi never called"
+  assert_not_called "claude " "claude never called"
+}
+
 test_help_omits_p_flag() {
   local output
   output=$(show_help)
