@@ -34,25 +34,39 @@ INFER_HARNESS="auto"
 INFER_MODEL=""
 
 # Single prompt for inferring both branch name and workspace label (override in ~/.config/wt-spawn/config.sh)
-INFER_PROMPT='Output a JSON object with two fields inferred from this task:
-- "branch":
-  - branch name in format "feat/three-words-max".
-  - Include TICKET-ID (e.g. TICK-123) only if explicitly mentioned — do not infer ticket IDs.
-- "name":
-  - short workspace label for a terminal tab.
-  - Max 4 words, sentence case.
-  - Include TICKET-ID only if explicitly mentioned.
+INFER_PROMPT='Name a workspace from the instruction. Output only a JSON object with branch and name fields.
 
-Reply with ONLY a single valid JSON object. No markdown formatting, no backticks, no explanation, no other text.
-Avoid names like "plan", "brainstorm". What are we planning? Use that as context.
+Rules:
+- branch: "feat/{slug}" — kebab-case. STRICT MAX 3 segments after "rico/". Truncate ruthlessly: keep only the most distinctive 2-3 words. Include ticket ID (e.g. TICK-123) only if explicitly mentioned, appended as "-TICK-123".
+- name: sentence case label. STRICT MAX 4 words. Must be a noun phrase — never start with a verb (Add, Fix, Implement, Update, Refactor, etc.). Include ticket ID only if explicitly mentioned, as " · TICK-123".
+- Ignore workflow commands (/goal, commit, push, merge, use skill, etc.). Extract the topic from the plan filename or the core subject described.
 
 Examples:
-{"branch": "feat/add-redis-caching", "name": "Add Redis caching"}
-{"branch": "feat/add-redis-caching-TICK-123", "name": "Add Redis caching · TICK-123"}
 
-<task>
+Instruction: "add dark mode support"
+Output: {"branch": "feat/add-dark-mode", "name": "Dark mode"}
+
+Instruction: "fix login redirect loop"
+Output: {"branch": "feat/fix-login-redirect", "name": "Login redirect"}
+
+Instruction: "Plan: plan-2026-1244-add-ttl-to-redis-caching.md"
+Output: {"branch": "feat/add-redis-caching", "name": "Redis caching"}
+
+Instruction: "dark mode broken in safari"
+Output: {"branch": "feat/safari-dark-mode", "name": "Safari dark mode"}
+
+Instruction: "TICK-123 Plan: plan-2026-1244-add-redis-caching-ttl.md"
+Output: {"branch": "feat/add-redis-caching-TICK-123", "name": "Redis caching · TICK-123"}
+
+Instruction: "Fix race condition in background job queue processor"
+Output: {"branch": "feat/fix-race-condition", "name": "Race condition"}
+
+Output only JSON, nothing else.
+
+Instruction:
+<instruction>
 %PROMPT%
-</task>'
+</instruction>'
 
 # Auto draft PR on new worktrees (set 0 to disable)
 AUTO_CREATE_DRAFT_PR="${AUTO_CREATE_DRAFT_PR:-1}"
