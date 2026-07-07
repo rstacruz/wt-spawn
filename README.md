@@ -159,7 +159,7 @@ INFER_MODEL=
 # String to prefix branches with (eg, `feat/otel-instrumentation`)
 BRANCH_PREFIX=feat
 
-# Cusotmize the prompt used (see wt-spawn --print-default-config for full prompt)
+# Customize the prompt used (see wt-spawn --print-default-config for full prompt)
 INFER_PROMPT="..."
 ```
 
