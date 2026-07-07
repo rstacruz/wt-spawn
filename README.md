@@ -174,6 +174,8 @@ wt-spawn -a sonnet --branch feat/add-redis "add redis caching"
 
 Every new worktree gets an empty draft PR so you can track work in GitHub as it happens. The PR title is the workspace name inferred from your prompt.
 
+It's enabled by default. `--pr` and `--no-pr` flags are available to override this:
+
 ```sh
 # Skip the draft PR for a quick one-off:
 wt-spawn --no-pr "#sonnet fix typo in README"
@@ -183,6 +185,9 @@ Configuration:
 
 ```sh
 # ~/.config/wt-spawn/config.sh
+
+# 0 = disable, 1 = enable
+AUTO_CREATE_DRAFT_PR=1
 
 # Message for the empty initial commit
 INITIAL_COMMIT_MESSAGE="initial commit for branch"
