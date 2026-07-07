@@ -404,7 +404,7 @@ ensure_valid_infer_harness() {
 ensure_dependencies() {
   local -a missing=()
   local cmd
-  for cmd in wt jq git; do
+  for cmd in wt jq git gh; do
     command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
   done
   if [[ ${#missing[@]} -gt 0 ]]; then

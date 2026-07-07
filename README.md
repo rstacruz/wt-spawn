@@ -10,8 +10,9 @@ Copy [`wt-spawn`](./wt-spawn) to a bin directory (eg, `~/.local/bin`). You also 
 - **[worktrunk](https://github.com/max-sixty/worktrunk)**
 - **[jq](https://jqlang.org/)**
 - Claude Code or OpenCode (works out of the box); or [configure](#configuration) your favourite agent
+- **[GitHub CLI](https://cli.github.com/)** (`gh`) — for draft PR creation
 
-macOS users can use `brew install bash jq max-sixty/tap/worktrunk` to install prerequisites.
+macOS users can use `brew install bash jq gh max-sixty/tap/worktrunk` to install prerequisites.
 
 ## Usage
 
@@ -167,5 +168,23 @@ The workspace display name is derived automatically from the branch.
 ```sh
 wt-spawn -a sonnet --branch feat/add-redis "add redis caching"
 # branch = feat/add-redis, workspace name = Add redis
+```
+
+## Auto PR creation
+
+Every new worktree gets an empty draft PR so you can track work in GitHub as it happens. The PR title is the workspace name inferred from your prompt.
+
+```sh
+# Skip the draft PR for a quick one-off:
+wt-spawn --no-pr "#sonnet fix typo in README"
+```
+
+Configuration:
+
+```sh
+# ~/.config/wt-spawn/config.sh
+
+# Message for the empty initial commit
+INITIAL_COMMIT_MESSAGE="initial commit for branch"
 ```
 
