@@ -217,8 +217,8 @@ OPTIONS:
   --base <branch>          Base branch (passed to wt switch and gh pr create)
   -a, --agent <agent>     Agent to use (required, or use #agent-name tag)
   -t, --template <name>   Prompt template: plan, implement
-  --create-pr             Create a draft PR after worktree creation
-  --no-create-pr          Skip draft PR creation
+  --pr                    Create a draft PR after worktree creation
+  --no-pr                 Skip draft PR creation
   --print-default-config  Print current defaults as shell config to stdout
   --init                  Write config to ~/.config/wt-spawn/config.sh
   -h, --help              Show this help message and exit
@@ -647,8 +647,8 @@ main() {
         exit 2
       fi
       template="$2"; shift 2 ;;
-    --create-pr)   create_pr=1; shift ;;
-    --no-create-pr) create_pr=0; shift ;;
+    --pr | --create-pr)       create_pr=1; shift ;;
+    --no-pr | --no-create-pr) create_pr=0; shift ;;
     -h | --help)   show_help; exit 0 ;;
     --)            shift; positional_args+=("$@"); break ;;
     -)             positional_args+=("-"); shift ;;
