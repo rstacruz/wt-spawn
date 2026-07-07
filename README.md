@@ -149,8 +149,8 @@ Branch/workspace name inference runs through a small, cheap model call. Configur
 Customize the branch prefix (default `feat`):
 
 ```sh
-BRANCH_PREFIX="rico"
-# produces branches like: rico/add-dark-mode
+BRANCH_PREFIX="marcus"
+# produces branches like: marcus/add-dark-mode
 ```
 
 ```sh
