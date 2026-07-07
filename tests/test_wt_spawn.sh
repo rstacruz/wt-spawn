@@ -1108,6 +1108,39 @@ test_iterm2_muxer_display() {
   unset TERM_PROGRAM
 }
 
+test_legacy_pr_flags_still_work() {
+  # Old alias --no-create-pr still parses and creates worktree
+  INFER_HARNESS=pi
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/legacy-test", "name": "Legacy Test"}'
+  }
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+  herdr() {
+    log_call "herdr" "$@"
+    if [[ "$*" == *"workspace create"* ]]; then
+      echo '{"result":{"root_pane":{"pane_id":"pane-99"}}}'
+    fi
+  }
+
+  main --no-create-pr -a sonnet "legacy test"
+
+  assert_called "--create feat/legacy-test" "legacy --no-create-pr flag parsed, worktree created"
+}
+
+test_legacy_pr_flags_hidden_from_help() {
+  local help_text
+  help_text=$(main --help 2>&1)
+
+  echo "$help_text" | grep -qF -- '--pr' || fail "--pr should appear in help"
+  echo "$help_text" | grep -qF -- '--no-pr' || fail "--no-pr should appear in help"
+  ! echo "$help_text" | grep -qF -- '--create-pr' || fail "--create-pr should NOT appear in help"
+  ! echo "$help_text" | grep -qF -- '--no-create-pr' || fail "--no-create-pr should NOT appear in help"
+}
+
 # --- shunit2 bootstrap ---
 # shellcheck disable=SC1091
 source "$TEST_DIR/shunit2"
