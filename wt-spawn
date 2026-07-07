@@ -484,13 +484,14 @@ infer_branch_and_name() {
   escaped_desc="${escaped_desc//\//\\\/}"
   # Validate BRANCH_PREFIX
   local prefix="$BRANCH_PREFIX"
-  if [[ -z "${prefix// /}" ]]; then
+  # Strip trailing slashes to prevent double-slash in templates (loop-based, no extglob mutation)
+  while [[ "$prefix" == */ ]]; do
+    prefix="${prefix%/}"
+  done
+  # Empty/whitespace-only falls back to feat
+  if [[ -z "${prefix//[[:space:]]}" ]]; then
     prefix="feat"
   fi
-  # Strip trailing slashes to prevent double-slash in templates
-  shopt -s extglob
-  prefix="${prefix%%+(/)}"
-  shopt -u extglob
 
   local prompt="${INFER_PROMPT//%PREFIX%/$prefix}"
   prompt="${prompt//%PROMPT%/$escaped_desc}"

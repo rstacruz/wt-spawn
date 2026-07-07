@@ -1135,12 +1135,12 @@ test_BRANCH_PREFIX_in_print_default_config() {
   local output
   output=$(print_default_config)
   grep -q "^BRANCH_PREFIX='feat'$" <<<"$output" || fail "missing BRANCH_PREFIX in print_default_config"
-  grep -q '%PREFIX%' <<<"$output" || fail "INFER_PROMPT must contain %PREFIX% placeholder"
+  grep -q 'branch:.*%PREFIX%/' <<<"$output" || fail "INFER_PROMPT must contain %PREFIX% placeholder"
 }
 
 test_empty_BRANCH_PREFIX_falls_back() {
   INFER_HARNESS=pi
-  BRANCH_PREFIX=""
+  local BRANCH_PREFIX=""
 
   wt() {
     log_call "wt" "$@"
@@ -1166,7 +1166,7 @@ test_empty_BRANCH_PREFIX_falls_back() {
 
 test_BRANCH_PREFIX_trailing_slash_stripped() {
   INFER_HARNESS=pi
-  BRANCH_PREFIX="feat/"
+  local BRANCH_PREFIX="feat/"
 
   wt() {
     log_call "wt" "$@"
@@ -1193,7 +1193,7 @@ test_BRANCH_PREFIX_trailing_slash_stripped() {
 
 test_infer_prompt_uses_custom_prefix() {
   INFER_HARNESS=pi
-  BRANCH_PREFIX="rico"
+  local BRANCH_PREFIX="rico"
 
   wt() {
     log_call "wt" "$@"
