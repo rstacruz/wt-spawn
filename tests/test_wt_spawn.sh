@@ -1131,6 +1131,95 @@ test_legacy_pr_flags_still_work() {
   assert_called "--create feat/legacy-test" "legacy --no-create-pr flag parsed, worktree created"
 }
 
+test_BRANCH_PREFIX_in_print_default_config() {
+  local output
+  output=$(print_default_config)
+  grep -q "^BRANCH_PREFIX='feat'$" <<<"$output" || fail "missing BRANCH_PREFIX in print_default_config"
+  grep -q 'branch:.*%PREFIX%/' <<<"$output" || fail "INFER_PROMPT must contain %PREFIX% placeholder"
+}
+
+test_empty_BRANCH_PREFIX_falls_back() {
+  INFER_HARNESS=pi
+  local BRANCH_PREFIX=""
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+  pi() {
+    log_call "pi" "$@"
+    # Verify prompt contains fallback prefix feat/
+    [[ "$*" == *'"feat/"'* || "$*" == *'feat/{slug}'* ]] || { echo 'ERROR: prompt missing feat/' >&2; return 1; }
+    echo '{"branch": "feat/fallback-test", "name": "Fallback Test"}'
+  }
+  herdr() {
+    log_call "herdr" "$@"
+    if [[ "$*" == *"workspace create"* ]]; then
+      echo '{"result":{"root_pane":{"pane_id":"pane-99"}}}'
+    fi
+  }
+
+  main --no-pr -a sonnet "add fallback test"
+
+  # Empty BRANCH_PREFIX should fall back to feat in the prompt
+  assert_called "pi " "pi called for inference"
+  assert_not_called "%PREFIX%" "%PREFIX% literal not sent to model"
+}
+
+test_BRANCH_PREFIX_trailing_slash_stripped() {
+  INFER_HARNESS=pi
+  local BRANCH_PREFIX="feat/"
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+  pi() {
+    log_call "pi" "$@"
+    # The prompt should NOT contain feat// (double slash from "feat/" + "/")
+    [[ "$*" != *'feat//'* ]] || { echo 'ERROR: double slash in prompt' >&2; return 1; }
+    echo '{"branch": "feat/slash-test", "name": "Slash Test"}'
+  }
+  herdr() {
+    log_call "herdr" "$@"
+    if [[ "$*" == *"workspace create"* ]]; then
+      echo '{"result":{"root_pane":{"pane_id":"pane-99"}}}'
+    fi
+  }
+
+  main --no-pr -a sonnet "add slash test"
+
+  assert_called "pi " "pi called for inference"
+  assert_not_called "feat//" "no double slash in prompt"
+}
+
+test_infer_prompt_uses_custom_prefix() {
+  INFER_HARNESS=pi
+  local BRANCH_PREFIX="rico"
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+  pi() {
+    log_call "pi" "$@"
+    # Verify prompt contains custom prefix rico/
+    [[ "$*" == *'"rico/"'* || "$*" == *'rico/{slug}'* ]] || { echo 'ERROR: prompt missing rico/' >&2; return 1; }
+    echo '{"branch": "rico/custom-prefix", "name": "Custom Prefix"}'
+  }
+  herdr() {
+    log_call "herdr" "$@"
+    if [[ "$*" == *"workspace create"* ]]; then
+      echo '{"result":{"root_pane":{"pane_id":"pane-99"}}}'
+    fi
+  }
+
+  main --no-pr -a sonnet "add custom prefix test"
+
+  assert_called "pi " "pi called for inference"
+  # Prompt verified inside pi() mock (rico/ check)
+}
+
 test_legacy_pr_flags_hidden_from_help() {
   local help_text
   help_text=$(main --help 2>&1)

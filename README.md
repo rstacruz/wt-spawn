@@ -146,6 +146,13 @@ AGENTS[sonnet]='claude --model sonnet --dangerously-skip-permissions'
 
 Branch/workspace name inference runs through a small, cheap model call. Configure which CLI it uses:
 
+Customize the branch prefix (default `feat`):
+
+```sh
+BRANCH_PREFIX="marcus"
+# produces branches like: marcus/add-dark-mode
+```
+
 ```sh
 INFER_HARNESS=auto     # "auto" (default), "pi", "claude", or "opencode"
                        # auto tries claude first, then opencode
