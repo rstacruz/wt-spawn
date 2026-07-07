@@ -1203,6 +1203,8 @@ test_infer_prompt_uses_custom_prefix() {
   }
   pi() {
     log_call "pi" "$@"
+    # Verify prompt contains custom prefix rico/
+    [[ "$*" == *'"rico/"'* || "$*" == *'rico/{slug}'* ]] || { echo 'ERROR: prompt missing rico/' >&2; return 1; }
     echo '{"branch": "rico/custom-prefix", "name": "Custom Prefix"}'
   }
   herdr() {
@@ -1215,8 +1217,7 @@ test_infer_prompt_uses_custom_prefix() {
   main --no-pr -a sonnet "add custom prefix test"
 
   assert_called "pi " "pi called for inference"
-  # The prompt sent to pi must contain rico/
-  assert_called "rico/" "prompt contains custom prefix rico/"
+  # Prompt verified inside pi() mock (rico/ check)
 }
 
 test_legacy_pr_flags_hidden_from_help() {
