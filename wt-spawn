@@ -33,33 +33,36 @@ INFER_HARNESS="auto"
 # Model for inference (fast/cheap is fine). Empty = auto-pick
 INFER_MODEL=""
 
+# Branch name prefix (default: feat). Used in INFER_PROMPT via %PREFIX% placeholder.
+BRANCH_PREFIX="feat"
+
 # Single prompt for inferring both branch name and workspace label (override in ~/.config/wt-spawn/config.sh)
 INFER_PROMPT='Name a workspace from the instruction. Output only a JSON object with branch and name fields.
 
 Rules:
-- branch: "feat/{slug}" — kebab-case. STRICT MAX 3 segments after "rico/". Truncate ruthlessly: keep only the most distinctive 2-3 words. Include ticket ID (e.g. TICK-123) only if explicitly mentioned, appended as "-TICK-123".
+- branch: "%PREFIX%/{slug}" — kebab-case. STRICT MAX 3 segments after "%PREFIX%/". Truncate ruthlessly: keep only the most distinctive 2-3 words. Include ticket ID (e.g. TICK-123) only if explicitly mentioned, appended as "-TICK-123".
 - name: sentence case label. STRICT MAX 4 words. Must be a noun phrase — never start with a verb (Add, Fix, Implement, Update, Refactor, etc.). Include ticket ID only if explicitly mentioned, as " · TICK-123".
 - Ignore workflow commands (/goal, commit, push, merge, use skill, etc.). Extract the topic from the plan filename or the core subject described.
 
 Examples:
 
 Instruction: "add dark mode support"
-Output: {"branch": "feat/add-dark-mode", "name": "Dark mode"}
+Output: {"branch": "%PREFIX%/add-dark-mode", "name": "Dark mode"}
 
 Instruction: "fix login redirect loop"
-Output: {"branch": "feat/fix-login-redirect", "name": "Login redirect"}
+Output: {"branch": "%PREFIX%/fix-login-redirect", "name": "Login redirect"}
 
 Instruction: "Plan: plan-2026-1244-add-ttl-to-redis-caching.md"
-Output: {"branch": "feat/add-redis-caching", "name": "Redis caching"}
+Output: {"branch": "%PREFIX%/add-redis-caching", "name": "Redis caching"}
 
 Instruction: "dark mode broken in safari"
-Output: {"branch": "feat/safari-dark-mode", "name": "Safari dark mode"}
+Output: {"branch": "%PREFIX%/safari-dark-mode", "name": "Safari dark mode"}
 
 Instruction: "TICK-123 Plan: plan-2026-1244-add-redis-caching-ttl.md"
-Output: {"branch": "feat/add-redis-caching-TICK-123", "name": "Redis caching · TICK-123"}
+Output: {"branch": "%PREFIX%/add-redis-caching-TICK-123", "name": "Redis caching · TICK-123"}
 
 Instruction: "Fix race condition in background job queue processor"
-Output: {"branch": "feat/fix-race-condition", "name": "Race condition"}
+Output: {"branch": "%PREFIX%/fix-race-condition", "name": "Race condition"}
 
 Output only JSON, nothing else.
 
@@ -90,6 +93,9 @@ HEADER
   printf '\n'
   printf '# Model for inference (fast/cheap is fine). Empty = auto-pick from INFER_HARNESS.\n'
   printf "INFER_MODEL='%s'\n" "${INFER_MODEL//\'/\'\\\'\'}"
+  printf '\n'
+  printf '# Branch name prefix for auto-naming. Appended before /. Use in INFER_PROMPT via %%PREFIX%%\n'
+  printf "BRANCH_PREFIX='%s'\n" "${BRANCH_PREFIX//\'/\'\\\'\'}"
   printf '\n'
 
   # --- INFER_PROMPT ---
@@ -476,7 +482,18 @@ infer_branch_and_name() {
   local escaped_desc="${description//\\/\\\\}"
   escaped_desc="${escaped_desc//&/\\&}"
   escaped_desc="${escaped_desc//\//\\\/}"
-  local prompt="${INFER_PROMPT//%PROMPT%/$escaped_desc}"
+  # Validate BRANCH_PREFIX
+  local prefix="$BRANCH_PREFIX"
+  if [[ -z "${prefix// /}" ]]; then
+    prefix="feat"
+  fi
+  # Strip trailing slashes to prevent double-slash in templates
+  shopt -s extglob
+  prefix="${prefix%%+(/)}"
+  shopt -u extglob
+
+  local prompt="${INFER_PROMPT//%PREFIX%/$prefix}"
+  prompt="${prompt//%PROMPT%/$escaped_desc}"
   local raw branch name attempt
 
   for attempt in 1 2 3 4; do
