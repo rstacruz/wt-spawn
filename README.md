@@ -86,14 +86,15 @@ Config location: `${XDG_CONFIG_HOME:-~/.config}/wt-spawn/config.sh`
 
 ## Prompt template
 
-Prompt templates are available via `-t/--template` or via hashtags.
+Prompt templates are available via `-t/--template` or via hashtags. Both of these do the same thing:
 
 ```sh
 wt-spawn "#plan fix issue XYZ-1234"
+wt-spawn -t "plan" "fix issue XYZ-1234"
+
 # Expands to the prompt:
 #
 #    Create a plan. Details: fix issue XYZ-1234
-#
 ```
 
 They can be configured. Here are the defaults:
@@ -102,12 +103,6 @@ They can be configured. Here are the defaults:
 # ~/.config/wt-spawn/config.sh
 PROMPT_TEMPLATES[plan]='Create a plan. Details:'
 PROMPT_TEMPLATES[implement]='/goal Implement this plan as described, ensure PR title and description are accurate and sensible. Ultrathink. Plan:'
-```
-
-Templates can also be invoked via `-t/--template`:
-
-```sh
-wt-spawn -t "plan" "fix issue XYZ-1234"
 ```
 
 ## Agents
@@ -120,10 +115,11 @@ Supports the following agents by default, and more can be added via custom confi
 - [OpenCode](https://opencode.ai/)
 - ...bring your own via config
 
-Agents can be chosen using `-a/--agent <name>`.
+Agents can be chosen using `-a/--agent <name>` or by hashtag. Both of these do the same thing:
 
 ```sh
 wt-spawn -a "sonnet" "translate README.md to French, and save to README.fr.md"
+wt-spawn "#sonnet translate README.md to French, and save to README.fr.md"
 ```
 
 Agents can be configured. Here are the defaults:
