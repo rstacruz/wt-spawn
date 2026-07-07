@@ -94,7 +94,7 @@ HEADER
   printf '# Model for inference (fast/cheap is fine). Empty = auto-pick from INFER_HARNESS.\n'
   printf "INFER_MODEL='%s'\n" "${INFER_MODEL//\'/\'\\\'\'}"
   printf '\n'
-  printf '# Branch name prefix for auto-naming. Appended before /. Use in INFER_PROMPT via %%PREFIX%%\n'
+  printf '# Branch name prefix for auto-naming. Prepended to branch names (before /). Use in INFER_PROMPT via %%PREFIX%%\n'
   printf "BRANCH_PREFIX='%s'\n" "${BRANCH_PREFIX//\'/\'\\\'\'}"
   printf '\n'
 
@@ -493,7 +493,11 @@ infer_branch_and_name() {
     prefix="feat"
   fi
 
-  local prompt="${INFER_PROMPT//%PREFIX%/$prefix}"
+  # Escape & and \ before pattern substitution (bash treats them specially in replacement)
+  local prefix_escaped="${prefix//\\/\\\\}"
+  prefix_escaped="${prefix_escaped//&/\\&}"
+
+  local prompt="${INFER_PROMPT//%PREFIX%/$prefix_escaped}"
   prompt="${prompt//%PROMPT%/$escaped_desc}"
   local raw branch name attempt
 

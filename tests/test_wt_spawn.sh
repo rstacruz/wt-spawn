@@ -1148,6 +1148,8 @@ test_empty_BRANCH_PREFIX_falls_back() {
   }
   pi() {
     log_call "pi" "$@"
+    # Verify prompt contains fallback prefix feat/
+    [[ "$*" == *'"feat/"'* || "$*" == *'feat/{slug}'* ]] || { echo 'ERROR: prompt missing feat/' >&2; return 1; }
     echo '{"branch": "feat/fallback-test", "name": "Fallback Test"}'
   }
   herdr() {
