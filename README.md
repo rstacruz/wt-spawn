@@ -144,20 +144,23 @@ AGENTS[sonnet]='claude --model sonnet --dangerously-skip-permissions'
 
 ## Auto branch naming
 
-Branch/workspace name inference runs through a small, cheap model call. Configure which CLI it uses:
-
-Customize the branch prefix (default `feat`):
+Branch/workspace name inference runs through a small, cheap model call. Configuration:
 
 ```sh
-BRANCH_PREFIX="marcus"
-# produces branches like: marcus/add-dark-mode
-```
+# Harness used to generate branch and workspace names
+# "auto" (default), "pi", "claude", or "opencode"
+# auto tries claude first, then opencode
+INFER_HARNESS=auto
 
-```sh
-INFER_HARNESS=auto     # "auto" (default), "pi", "claude", or "opencode"
-                       # auto tries claude first, then opencode
-INFER_MODEL=           # empty = auto-pick per harness:
-                       #   claude → haiku, pi → openai-codex/gpt-5.4-mini, opencode → opencode/big-pickle
+# empty = auto-pick per harness:
+#   claude → haiku, pi → openai-codex/gpt-5.4-mini, opencode → opencode/big-pickle
+INFER_MODEL=
+
+# String to prefix branches with (eg, `feat/otel-instrumentation`)
+BRANCH_PREFIX=feat
+
+# Cusotmize the prompt used (see wt-spawn --print-default-config for full prompt)
+INFER_PROMPT="..."
 ```
 
 ## Branch name override
