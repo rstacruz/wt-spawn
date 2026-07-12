@@ -215,8 +215,8 @@ show_help() {
   cat <<EOF
 Usage: wt-spawn [-a <agent>] [-t <template>] [-b <name>] [--base <branch>] [prompt...]
 
-Starts an agent in a new git worktree. Opens \$EDITOR to draft task when
-no prompt is given.
+Starts an agent in a new git worktree. Creates a git branch,
+worktree, and draft pull request.
 
 OPTIONS:
   -b, --branch <name>     Branch name (skips LLM inference)
@@ -245,6 +245,14 @@ EOF
 
   cat <<'EOF'
 
+EXAMPLE:
+  wt-spawn -a sonnet "fix ios compatibility"
+
+  # Created
+  #   branch: feat/fix-ios
+  #   worktree: ~/project__worktree/fix-ios
+  #   draft PR: github.com/user/repo/pull/2
+  #
 EXAMPLES:
   wt-spawn -a sonnet "fix bug"
   wt-spawn -a sonnet -t plan "add redis caching"
