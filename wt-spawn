@@ -74,6 +74,9 @@ Instruction:
 # Auto draft PR on new worktrees (set 0 to disable)
 AUTO_CREATE_DRAFT_PR="${AUTO_CREATE_DRAFT_PR:-1}"
 
+# Use zmx for session persistence (0=off, 1=on). Requires zmx installed.
+USE_ZMX="${USE_ZMX:-0}"
+
 # Message for the empty initial commit
 INITIAL_COMMIT_MESSAGE="${INITIAL_COMMIT_MESSAGE:-initial commit for branch}"
 
@@ -134,7 +137,10 @@ TEMPLATES_HEADER
   printf "INITIAL_COMMIT_MESSAGE='%s'\n" "${INITIAL_COMMIT_MESSAGE//\'/\'\\\'\'}"
   printf '\n'
   printf '# Remote to push to for draft PRs\n'
-  printf "PR_REMOTE='%s'\n" "${PR_REMOTE//\'/\'\\\'\'}"
+  printf "PR_REMOTE='%s'\n" "${PR_REMOTE//\'/\'\\\'}"
+  printf '\n'
+  printf '# Use zmx for session persistence (0=off, 1=on). Requires zmx installed.\n'
+  printf "USE_ZMX='%s'\n" "${USE_ZMX:-0}"
 }
 
 init_config() {
@@ -223,6 +229,8 @@ OPTIONS:
   --base <branch>          Base branch (passed to wt switch and gh pr create)
   -a, --agent <agent>     Agent to use (required, or use #agent-name tag)
   -t, --template <name>   Prompt template: plan, implement
+  --zmx                   Use zmx for session persistence
+  --no-zmx                Don't use zmx (overrides config)
   --pr                    Create a draft PR after worktree creation
   --no-pr                 Skip draft PR creation
   --print-default-config  Print current defaults as shell config to stdout
@@ -677,6 +685,8 @@ main() {
         exit 2
       fi
       template="$2"; shift 2 ;;
+    --zmx)   USE_ZMX=1; shift ;;
+    --no-zmx) USE_ZMX=0; shift ;;
     --pr | --create-pr)       create_pr=1; shift ;;
     --no-pr | --no-create-pr) create_pr=0; shift ;;
     -h | --help)   show_help; exit 0 ;;
@@ -757,6 +767,11 @@ $description"
 
   ensure_dependencies || exit 2
 
+  if [[ "${USE_ZMX:-0}" == "1" ]] && ! command -v zmx >/dev/null 2>&1; then
+    echo "Error: USE_ZMX=1 but zmx is not installed (not found in PATH)" >&2
+    exit 2
+  fi
+
   # Resolve branch and workspace name
   local ws_name
   if [[ -n "${branch:-}" ]]; then
@@ -805,6 +820,11 @@ $description"
       fi
       GH_PROMPT_DISABLED=1 gh pr create --draft --title "$pr_title" --body "$pr_body" "${gh_base[@]}" 2>/dev/null || true
     ) || true
+  fi
+
+  # zmx wrapping — prepend zmx attach before muxer dispatch
+  if [[ "${USE_ZMX:-0}" == "1" ]]; then
+    execute_cmd=(zmx attach "$(basename "$worktree_path")-$agent" "${execute_cmd[@]}")
   fi
 
   # --- confirmation ---
