@@ -1277,9 +1277,18 @@ test_zmx_with_muxer() {
 
   main --no-pr -a sonnet "herdr zmx test"
 
-  # herdr dispatch still works — zmx wrapping hidden inside cmdfile
+  # herdr dispatch still works
   assert_called "herdr pane run" "herdr pane run called"
   assert_called "herdr workspace create" "herdr workspace create called"
+
+  # verify zmx wrapping in cmdfile (distinct code path from bare exec)
+  local cmdfile
+  cmdfile=$(cat "$CALL_LOG" | grep -oE '/tmp/wt-cmd-[a-zA-Z0-9]+' | head -1)
+  if [[ -n "$cmdfile" && -f "$cmdfile" ]]; then
+    grep -q 'zmx attach' "$cmdfile" || fail "cmdfile should contain zmx attach"
+  else
+    fail "cmdfile not found: '$cmdfile'"
+  fi
 }
 
 test_zmx_flags() {

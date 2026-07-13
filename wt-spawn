@@ -842,7 +842,12 @@ $description"
   {
     echo ""
     echo "✓ Launching agent"
-    echo "  command:  ${AGENTS[$agent]}"
+    if [[ "${USE_ZMX:-0}" == "1" ]]; then
+      echo "  zmx:      $(basename "$worktree_path")-$agent"
+      echo "  command:  zmx attach $(basename "$worktree_path")-$agent ${AGENTS[$agent]}"
+    else
+      echo "  command:  ${AGENTS[$agent]}"
+    fi
     echo "  muxer:    ${muxer}"
     echo "  name:     ${ws_name:-$branch}"
     echo "  branch:   ${branch}"
