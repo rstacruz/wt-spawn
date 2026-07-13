@@ -137,7 +137,7 @@ TEMPLATES_HEADER
   printf "INITIAL_COMMIT_MESSAGE='%s'\n" "${INITIAL_COMMIT_MESSAGE//\'/\'\\\'\'}"
   printf '\n'
   printf '# Remote to push to for draft PRs\n'
-  printf "PR_REMOTE='%s'\n" "${PR_REMOTE//\'/\'\\\'}"
+  printf "PR_REMOTE='%s'\n" "${PR_REMOTE//\'/\'\\\'\'}"
   printf '\n'
   printf '# Use zmx for session persistence (0=off, 1=on). Requires zmx installed.\n'
   printf "USE_ZMX='%s'\n" "${USE_ZMX:-0}"
