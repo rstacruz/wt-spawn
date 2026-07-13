@@ -69,6 +69,25 @@ wt-spawn automatically creates workspaces using the multiplexer being used. No c
 - [iTerm2](https://iterm2.com/)
 - [tmux](https://github.com/tmux/tmux)
 
+## Session persistence (zmx)
+
+[zmx](https://github.com/neurosnap/zmx) gives agent processes detachable sessions — survive terminal closes, reconnect later. Works alongside any multiplexer or in a bare terminal.
+
+Enabled via config or flag:
+
+```sh
+# ~/.config/wt-spawn/config.sh
+# Use zmx for session persistence (0=off, 1=on). Requires zmx installed.
+USE_ZMX='1'
+```
+
+```sh
+wt-spawn --zmx "#sonnet fix login redirect"   # force on
+wt-spawn --no-zmx "#sonnet quick fix"         # force off
+```
+
+When enabled, agents run inside `zmx attach <session>` sessions named `{worktree}-{agent}` (e.g. `fix-login-sonnet`). Detach with `ctrl+\`, reattach with `zmx attach fix-login-sonnet`, list with `zmx list`.
+
 ## Configuration
 
 Generate default config:

@@ -69,6 +69,7 @@ setUp() {
   unset ZELLIJ TMUX
 
   AUTO_CREATE_DRAFT_PR=0
+  USE_ZMX=0
   INFER_HARNESS=auto
   INFER_MODEL=""
 }
@@ -1228,6 +1229,125 @@ test_legacy_pr_flags_hidden_from_help() {
   echo "$help_text" | grep -qF -- '--no-pr' || fail "--no-pr should appear in help"
   ! echo "$help_text" | grep -qF -- '--create-pr' || fail "--create-pr should NOT appear in help"
   ! echo "$help_text" | grep -qF -- '--no-create-pr' || fail "--no-create-pr should NOT appear in help"
+
+  echo "$help_text" | grep -qF -- '--zmx' || fail "show_help must list --zmx"
+  echo "$help_text" | grep -qF -- '--no-zmx' || fail "show_help must list --no-zmx"
+}
+
+# --- zmx tests ---
+
+test_zmx_no_muxer() {
+  USE_ZMX=1
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT ZELLIJ TMUX TERM_PROGRAM
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/zmx-test", "name": "Zmx Test"}'
+  }
+  zmx() { log_call "zmx" "$@"; }
+
+  main --no-pr -a sonnet "zmx bare test"
+
+  assert_called "zmx attach" "zmx called for bare terminal"
+}
+
+test_zmx_with_muxer() {
+  USE_ZMX=1
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/herdr-zmx", "name": "Herdr Zmx"}'
+  }
+  herdr() {
+    log_call "herdr" "$@"
+    if [[ "$*" == *"workspace create"* ]]; then
+      echo '{"result":{"root_pane":{"pane_id":"pane-99"}}}'
+    fi
+  }
+  zmx() { log_call "zmx" "$@"; }
+
+  main --no-pr -a sonnet "herdr zmx test"
+
+  # herdr dispatch still works
+  assert_called "herdr pane run" "herdr pane run called"
+  assert_called "herdr workspace create" "herdr workspace create called"
+
+  # verify zmx wrapping in cmdfile (distinct code path from bare exec)
+  local cmdfile
+  cmdfile=$(cat "$CALL_LOG" | grep -oE '[^ ]*wt-cmd-[a-zA-Z0-9]+' | head -1)
+  if [[ -n "$cmdfile" && -f "$cmdfile" ]]; then
+    grep -q 'zmx attach' "$cmdfile" || fail "cmdfile should contain zmx attach"
+  else
+    fail "cmdfile not found: '$cmdfile'"
+  fi
+}
+
+test_zmx_flags() {
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT ZELLIJ TMUX TERM_PROGRAM
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/flag-test", "name": "Flag Test"}'
+  }
+  zmx() { log_call "zmx" "$@"; }
+
+  # --zmx overrides config default (USE_ZMX=0)
+  USE_ZMX=0 main --no-pr --zmx -a sonnet "flag test"
+  assert_called "zmx attach" "--zmx flag enables zmx"
+
+  : > "$CALL_LOG"
+  # --no-zmx overrides config (USE_ZMX=1)
+  USE_ZMX=1 main --no-pr --no-zmx -a sonnet "flag test"
+  assert_not_called "zmx attach" "--no-zmx flag disables zmx"
+}
+
+test_zmx_missing_dependency() {
+  # Run in subshell: unset mock + empty PATH → command -v zmx fails
+  local output status
+  output=$(unset -f zmx; PATH="" USE_ZMX=1 main --no-pr --branch feat/test -a sonnet "test" 2>&1) && status=$? || status=$?
+  assertEquals "zmx missing is error" 2 "$status"
+  echo "$output" | grep -qi 'zmx is not installed' || fail "error message should mention zmx"
+}
+
+test_zmx_not_called_when_off() {
+  USE_ZMX=0
+  unset HERDR_ENV CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_PORT ZELLIJ TMUX TERM_PROGRAM
+  INFER_HARNESS=pi
+
+  wt() {
+    log_call "wt" "$@"
+    printf '{"path":"%s"}\n' "$FAKE_WT"
+  }
+  pi() {
+    log_call "pi" "$@"
+    echo '{"branch": "feat/no-zmx", "name": "No Zmx"}'
+  }
+  zmx() { log_call "zmx" "$@"; }
+
+  main --no-pr -a sonnet "no zmx"
+  assert_not_called "zmx attach" "zmx not called when USE_ZMX=0"
+}
+
+test_print_default_config_includes_use_zmx() {
+  local output
+  output=$(print_default_config)
+  grep -q "^USE_ZMX='0'$" <<<"$output" || fail "missing USE_ZMX in config output"
+  grep -q 'Use zmx for session persistence' <<<"$output" || fail "missing USE_ZMX comment in config output"
 }
 
 # --- shunit2 bootstrap ---
