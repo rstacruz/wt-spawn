@@ -1307,11 +1307,11 @@ test_zmx_flags() {
 }
 
 test_zmx_missing_dependency() {
-  # Guard: zmx must be on PATH when USE_ZMX=1 (contract test for error message)
-  # Cannot simulate missing zmx here because /usr/bin/zmx exists as a broken
-  # symlink and command -v finds it regardless. Error path tested via manual
-  # verification: uninstall zmx, run wt-spawn, expect clear error.
-  :
+  # Run in subshell: unset mock + empty PATH → command -v zmx fails
+  local output status
+  output=$(unset -f zmx; PATH="" USE_ZMX=1 main --no-pr --branch feat/test -a sonnet "test" 2>&1) && status=$? || status=$?
+  assertEquals "zmx missing is error" 2 "$status"
+  echo "$output" | grep -qi 'zmx is not installed' || fail "error message should mention zmx"
 }
 
 test_zmx_not_called_when_off() {
