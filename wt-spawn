@@ -769,7 +769,7 @@ $description"
   ensure_dependencies || exit 2
 
   if [[ "${USE_ZMX:-0}" == "1" ]] && ! command -v zmx >/dev/null 2>&1; then
-    echo "Error: USE_ZMX=1 but zmx is not installed (not found in PATH)" >&2
+    echo "Error: zmx is not installed (not found in PATH). Enable via --zmx flag or USE_ZMX=1 config." >&2
     exit 2
   fi
 
@@ -825,7 +825,8 @@ $description"
 
   # zmx wrapping — prepend zmx attach before muxer dispatch
   if [[ "${USE_ZMX:-0}" == "1" ]]; then
-    execute_cmd=(zmx attach "$(basename "$worktree_path")-$agent" "${execute_cmd[@]}")
+    local zmx_session="$(basename "$worktree_path")-$agent"
+    execute_cmd=(zmx attach "$zmx_session" "${execute_cmd[@]}")
   fi
 
   # --- confirmation ---
@@ -844,8 +845,8 @@ $description"
     echo ""
     echo "✓ Launching agent"
     if [[ "${USE_ZMX:-0}" == "1" ]]; then
-      echo "  zmx:      $(basename "$worktree_path")-$agent"
-      echo "  command:  zmx attach $(basename "$worktree_path")-$agent ${AGENTS[$agent]}"
+      echo "  zmx:      $zmx_session"
+      echo "  command:  zmx attach $zmx_session ${AGENTS[$agent]}"
     else
       echo "  command:  ${AGENTS[$agent]}"
     fi

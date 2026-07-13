@@ -1284,7 +1284,7 @@ test_zmx_with_muxer() {
 
   # verify zmx wrapping in cmdfile (distinct code path from bare exec)
   local cmdfile
-  cmdfile=$(cat "$CALL_LOG" | grep -oE '/tmp/wt-cmd-[a-zA-Z0-9]+' | head -1)
+  cmdfile=$(cat "$CALL_LOG" | grep -oE '[^ ]*wt-cmd-[a-zA-Z0-9]+' | head -1)
   if [[ -n "$cmdfile" && -f "$cmdfile" ]]; then
     grep -q 'zmx attach' "$cmdfile" || fail "cmdfile should contain zmx attach"
   else
