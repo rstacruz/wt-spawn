@@ -77,7 +77,8 @@ Enabled via config or flag:
 
 ```sh
 # ~/.config/wt-spawn/config.sh
-USE_ZMX=1
+# Use zmx for session persistence (0=off, 1=on). Requires zmx installed.
+USE_ZMX='1'
 ```
 
 ```sh
