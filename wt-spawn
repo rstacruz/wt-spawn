@@ -769,7 +769,7 @@ $description"
   ensure_dependencies || exit 2
 
   if [[ "${USE_ZMX:-0}" == "1" ]] && ! command -v zmx >/dev/null 2>&1; then
-    echo "Error: zmx is not installed (not found in PATH). Enable via --zmx flag or USE_ZMX=1 config." >&2
+    echo "Error: zmx is not installed (not found in PATH). Install zmx or disable with --no-zmx / USE_ZMX=0." >&2
     exit 2
   fi
 
