@@ -69,6 +69,7 @@ setUp() {
   unset ZELLIJ TMUX
 
   AUTO_CREATE_DRAFT_PR=0
+  USE_ZMX=0
   INFER_HARNESS=auto
   INFER_MODEL=""
 }
